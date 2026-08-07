@@ -29,13 +29,19 @@ services:
     build:
       context: ./apps/api
       dockerfile: ../../infrastructure/docker/api/Dockerfile
-    env_file:
-      - ./apps/api/.env
+    # No env_file here: Laravel reads the bind-mounted .env itself via
+    # dotenv. Injecting the same vars as real container env vars would
+    # take precedence over phpunit.xml's <env> testing overrides (OS env
+    # vars beat PHPUnit's env block even with force="true") and make
+    # RefreshDatabase run against the real Postgres. See phpunit.xml.
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:
       - ./apps/api:/app
       - api_vendor:/app/vendor
+      - ./config:/config:ro
+    environment:
+      SOURCES_REGISTRY_PATH: /config/sources.yaml
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,6 +82,9 @@ services:
       - ./apps/intelligence/.env
     volumes:
       - ./apps/intelligence:/app
+      - ./config:/config:ro
+    environment:
+      SOURCES_REGISTRY_PATH: /config/sources.yaml
     depends_on:
       postgres:
         condition: service_healthy

@@ -49,7 +49,7 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
 
       - name: Build
         run: npm run build
@@ -57,20 +57,72 @@ jobs:
   intelligence:
     name: Intelligence (Python)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/intelligence
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: pain_radar
+          POSTGRES_USER: pain_radar
+          POSTGRES_PASSWORD: pain_radar
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pain_radar -d pain_radar"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      INTELLIGENCE_DATABASE_URL: postgresql+psycopg://pain_radar:pain_radar@localhost:5432/pain_radar
+      INTELLIGENCE_REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
+
+      # The `sources`/`ingestion_runs`/`raw_documents` schema is owned by Laravel
+      # migrations (see docs/data-model.md) — apply it here so the Python
+      # integration tests in tests/test_ingest.py have real tables to hit.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo, pdo_pgsql, redis, bcmath, intl
+          coverage: none
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Migrate schema
+        working-directory: apps/api
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: pain_radar
+          DB_USERNAME: pain_radar
+          DB_PASSWORD: pain_radar
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan migrate --force
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install package
+        working-directory: apps/intelligence
         run: pip install -e ".[dev]"
 
       - name: Run tests
+        working-directory: apps/intelligence
         run: pytest
 
   compose-config:

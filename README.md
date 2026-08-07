@@ -2,9 +2,9 @@
 
 Problem intelligence, opportunity discovery, and commercial-validation platform for Malaysian SME operational friction.
 
-See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, and [`docs/architecture.md`](./docs/architecture.md) for system architecture.
+See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, and [`docs/data-model.md`](./docs/data-model.md) for the database schema.
 
-**Current status:** Milestone 0 — Foundation. No business features yet; this stands up the monorepo, the three services, and their health checks.
+**Current status:** Milestone 1 — Data Foundation. The source registry and first data.gov.my/OpenDOSM collector are live; no normalization, classification, or scoring yet.
 
 ## Stack
 
@@ -71,6 +71,20 @@ The `intelligence` service has no HTTP port; it runs as a background worker. Che
 docker compose exec intelligence python -m intelligence.cli health
 ```
 
+## Data ingestion
+
+Sync the source registry (`config/sources.yaml`) into the database, then run a collector:
+
+```bash
+docker compose exec api php artisan sources:sync
+docker compose exec intelligence python -m intelligence.cli ingest data_gov_my_fuelprice
+```
+
+Re-running `ingest` is safe — unchanged rows are skipped, changed rows are updated in place,
+nothing is duplicated. See [`docs/data-model.md`](./docs/data-model.md) and
+[`docs/adding-a-data-source.md`](./docs/adding-a-data-source.md) for the schema and how to
+configure another dataset.
+
 ## Running tests
 
 ```bash
@@ -88,4 +102,4 @@ docker compose exec intelligence pytest
 
 - `apps/*/.env.example` documents required environment variables per service; `.env` files are gitignored.
 - Application source directories are bind-mounted into containers for hot-reload during development; `vendor/` and `node_modules/` are kept in named Docker volumes so host and container dependency installs never collide.
-- No business logic, data collectors, or scoring exists yet — see `PROJECT_SPEC.md` §55 for the full milestone roadmap.
+- No normalization, classification, or scoring exists yet — see `PROJECT_SPEC.md` §55 for the full milestone roadmap.

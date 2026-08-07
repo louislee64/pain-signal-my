@@ -1,0 +1,27 @@
+# Source registry (PROJECT_SPEC.md §12).
+#
+# `collector` names a Python collector class registered in
+# apps/intelligence/src/intelligence/collectors/registry.py — it is never a
+# hard-coded per-dataset class. Adding a new data.gov.my/OpenDOSM dataset is a
+# config-only change: copy the fuelprice entry below with a different `slug`
+# and `config.dataset_id`. See docs/adding-a-data-source.md.
+#
+# Sync this file into the `sources` table with: php artisan sources:sync
+
+sources:
+  - slug: data_gov_my_fuelprice
+    name: "Malaysia Weekly Retail Fuel Price"
+    source_type: official_dataset
+    base_url: "https://api.data.gov.my/data-catalogue"
+    collector: data_gov_my_dataset
+    config:
+      dataset_id: fuelprice
+      date_column: date
+    collection_method: http_api
+    rate_limit: "4/minute"
+    reliability_score: 95
+    license: "Terms of Use for Government Open Data Malaysia 1.0"
+    terms_url: "https://www.mot.gov.my/en/Documents/Terms%20of%20Use%20Government%20Open%20Data%201.0.pdf"
+    terms_status: reviewed
+    personal_data_risk: none
+    enabled: true
