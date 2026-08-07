@@ -1,0 +1,44 @@
+# Environment files
+.env
+apps/**/.env
+!.env.example
+!apps/**/.env.example
+
+# Laravel (apps/api)
+apps/api/vendor/
+apps/api/node_modules/
+apps/api/storage/*.key
+apps/api/storage/framework/cache/*
+apps/api/storage/framework/sessions/*
+apps/api/storage/framework/views/*
+apps/api/storage/logs/*
+apps/api/bootstrap/cache/*
+apps/api/database/database.sqlite
+!apps/api/storage/framework/cache/.gitignore
+!apps/api/storage/framework/sessions/.gitignore
+!apps/api/storage/framework/views/.gitignore
+!apps/api/storage/logs/.gitignore
+!apps/api/bootstrap/cache/.gitignore
+
+# Nuxt (apps/web)
+apps/web/node_modules/
+apps/web/.nuxt/
+apps/web/.output/
+apps/web/.data/
+apps/web/dist/
+
+# Python (apps/intelligence)
+apps/intelligence/**/__pycache__/
+apps/intelligence/*.egg-info/
+apps/intelligence/.pytest_cache/
+apps/intelligence/build/
+apps/intelligence/dist/
+**/*.pyc
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docker
+*.pid
