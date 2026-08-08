@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Milestone 2 (Analytics Foundation). This document reflects what exists today, not the full target architecture described in `PROJECT_SPEC.md` §8.
+Status: Milestone 3 (Trends). This document reflects what exists today, not the full target architecture described in `PROJECT_SPEC.md` §8.
 
 ## Services
 
@@ -23,7 +23,7 @@ Status: Milestone 2 (Analytics Foundation). This document reflects what exists t
 - **web** (`apps/web`) — Nuxt 3. Talks to `api` over HTTP (`NUXT_PUBLIC_API_BASE_URL`). `GET /api/health` (a Nitro server route) reports the dashboard process itself.
 - **intelligence** (`apps/intelligence`) — Python 3.11 package. No HTTP server; runs as a long-lived worker process. `python -m intelligence.cli health` checks Postgres + Redis connectivity and is used as the Docker healthcheck. `ingest` / `normalize` / `classify` / `aggregate` subcommands run the pipeline stages below. Scoring (pain/commercial/opportunity) lands in Milestone 4 (`PROJECT_SPEC.md` §55).
 - **postgres** / **redis** — shared infrastructure, each with a native healthcheck (`pg_isready`, `redis-cli ping`).
-- **config/** (repo root) — mounted read-only into `api` and `intelligence` at `/config`. `config/sources.yaml` (source registry, §12) and `config/topics.yaml` (taxonomy, §4) sync into the DB via `php artisan sources:sync` / `topics:sync`. `config/signal_rules.yaml` (rule-based severity/urgency/economic-impact keyword weights) is read directly by Python — it has no DB-synced counterpart. See `docs/data-model.md` and `docs/adding-a-data-source.md`.
+- **config/** (repo root) — mounted read-only into `api` and `intelligence` at `/config`. `config/sources.yaml` (source registry, §12) and `config/topics.yaml` (taxonomy, §4) sync into the DB via `php artisan sources:sync` / `topics:sync`. `config/keywords.yaml` (Trends monitoring clusters, §15B) syncs via `php artisan keywords:sync`. `config/signal_rules.yaml` (rule-based severity/urgency/economic-impact keyword weights) is read directly by Python — it has no DB-synced counterpart. See `docs/data-model.md`, `docs/adding-a-data-source.md` and `docs/trends-data-sources.md`.
 
 ## Data ingestion (Milestone 1)
 
@@ -76,6 +76,42 @@ data). Every step here is deterministic rule-based logic — no LLM calls exist 
 each table stores and why, including where this implementation adds columns beyond
 `PROJECT_SPEC.md` §20's literal field lists.
 
+## Trend pipeline (Milestone 3)
+
+```text
+config/keywords.yaml --keywords:sync--> keywords table (curated monitoring list, §15B)
+                                              │
+                    ┌─────────────────────────┴──────────────────────────┐
+                    ▼                                                    ▼
+     trends collect <provider>                              trends discover <provider>
+     (§15B interest-over-time)                              (§15A top/rising terms)
+                    │                                                    │
+     trend_metrics raw interest                        new keywords rows, source='discovered'
+     + collection_batch/method                         (keywords:sync never touches these)
+                    │
+     trends compute -> rolling_7d/30d, baseline_90d,
+                       growth_7d/30d, growth_score, z_score
+                    │
+     GET /api/v1/trends            -> latest per keyword, most-rising first
+     GET /api/v1/trends/{keyword}  -> full stored series
+                    │
+     Nuxt /trends page -> line chart + table view
+```
+
+Providers sit behind a `TrendProvider` interface (`trends/base.py`) resolved through
+`trends/registry.py`, so a new source is one class plus one registry line. Two are
+implemented: `google_trends_csv` (official CSV export — works today, no credentials) and
+`google_trends_bigquery` (public dataset discovery — optional extra, needs a billed GCP
+project). The official Trends API is `PROJECT_SPEC.md` §69's stated first preference but is
+still an application-gated alpha with no public contract, so no adapter is written for it
+yet — see `docs/trends-data-sources.md` for the full rationale and exactly what to add when
+access is granted.
+
+The Nuxt page reaches the API through a Nitro proxy (`/api/v1/**` in `nuxt.config.ts`) rather
+than a configured absolute URL, because server-side rendering runs inside the container
+(`http://api:8000`) while the browser uses a published host port — one same-origin path means
+neither side has to know which it is.
+
 ## Why this shape
 
 - Three independently deployable apps sharing two datastores, per `PROJECT_SPEC.md` §8/§9 — no message broker or orchestrator introduced yet (`PROJECT_SPEC.md` §54 explicitly excludes Kafka/Kubernetes for V1).
@@ -99,6 +135,6 @@ one key (as done for `SOURCES_REGISTRY_PATH`), not via `env_file:`.
 
 ## Not yet implemented
 
-`trend_metrics` / `official_metrics` (Milestone 3, needs Google Trends), the scoring formulas
+`official_metrics` (§20), the scoring formulas
 in §26-29 and the `opportunities` table that depends on them (Milestone 4), and the commercial
 CRM tables in §21 (Milestone 6) onward. See `PROJECT_SPEC.md` §55 for the milestone sequence.

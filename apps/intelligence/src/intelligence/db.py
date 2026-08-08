@@ -147,6 +147,42 @@ problem_signals_table = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )
 
+keywords_table = Table(
+    "keywords",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("keyword", String, nullable=False),
+    Column("keyword_group", String, nullable=False),
+    Column("language", String, nullable=True),
+    Column("geo", String, nullable=False),
+    Column("source", String, nullable=False),
+    Column("enabled", Boolean, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+trend_metrics_table = Table(
+    "trend_metrics",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("date", Date, nullable=False),
+    Column("keyword_id", Integer, ForeignKey("keywords.id"), nullable=False),
+    Column("country", String, nullable=False),
+    Column("region", String, nullable=False),
+    Column("interest", SmallInteger, nullable=False),
+    Column("rolling_7d", Numeric(6, 2), nullable=True),
+    Column("rolling_30d", Numeric(6, 2), nullable=True),
+    Column("baseline_90d", Numeric(6, 2), nullable=True),
+    Column("growth_7d", Numeric(8, 2), nullable=True),
+    Column("growth_30d", Numeric(8, 2), nullable=True),
+    Column("growth_score", Numeric(8, 4), nullable=True),
+    Column("z_score", Numeric(8, 4), nullable=True),
+    Column("collection_method", String, nullable=False),
+    Column("collection_batch", String(26), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
 topic_daily_metrics_table = Table(
     "topic_daily_metrics",
     metadata,

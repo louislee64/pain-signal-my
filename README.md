@@ -4,7 +4,7 @@ Problem intelligence, opportunity discovery, and commercial-validation platform 
 
 See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, and [`docs/data-model.md`](./docs/data-model.md) for the database schema.
 
-**Current status:** Milestone 2 — Analytics Foundation. Raw documents get normalized, rule-based topic classification produces `problem_signals`, and daily metrics roll up per topic/region. No Google Trends, LLM extraction, or opportunity scoring yet.
+**Current status:** Milestone 3 — Trends. Adds Google Trends keyword monitoring: a config-driven keyword registry, pluggable trend providers, derived rolling/growth/z-score metrics, a trends API and a `/trends` dashboard page. No LLM extraction or opportunity scoring yet.
 
 ## Stack
 
@@ -25,7 +25,7 @@ apps/
   web/            Nuxt dashboard
   intelligence/   Python data/analytics package
 packages/         Shared taxonomy, schemas, config (cross-app)
-config/           YAML configuration: sources.yaml, topics.yaml, signal_rules.yaml
+config/           YAML configuration: sources.yaml, topics.yaml, keywords.yaml, signal_rules.yaml
 docs/             Architecture, business model, data model, policy docs
 infrastructure/   Dockerfiles, nginx, scripts
 tests/            Fixtures and integration tests
@@ -101,6 +101,34 @@ scope a run to one source. Classification is rule-based keyword matching against
 `config/topics.yaml` (no LLM calls yet — that's Milestone 4). See
 [`docs/data-model.md`](./docs/data-model.md) for what each stage writes and why.
 
+## Search trends
+
+Sync the keyword clusters, then collect and compute:
+
+```bash
+docker compose exec api php artisan keywords:sync
+
+# Which providers can actually run right now, and why not if they can't:
+docker compose exec intelligence python -m intelligence.cli trends check google_trends_csv
+
+# Collect from an official trends.google.com CSV export (no credentials needed):
+docker compose exec intelligence python -m intelligence.cli \
+  trends collect google_trends_csv --path /app/tests/fixtures/google_trends_interest_over_time.csv
+docker compose exec intelligence python -m intelligence.cli trends compute
+```
+
+Then open the dashboard at `/trends`, or query the API:
+
+```bash
+curl http://localhost:8000/api/v1/trends
+curl "http://localhost:8000/api/v1/trends/invoice%20software"
+```
+
+**Trends values are relative interest (0-100), never absolute search volume** and are only
+comparable within one `collection_batch` — see
+[`docs/trends-data-sources.md`](./docs/trends-data-sources.md), which also covers the
+BigQuery discovery provider and what to do when official Trends API access is granted.
+
 ## Running tests
 
 ```bash
@@ -118,4 +146,4 @@ docker compose exec intelligence pytest
 
 - `apps/*/.env.example` documents required environment variables per service; `.env` files are gitignored.
 - Application source directories are bind-mounted into containers for hot-reload during development; `vendor/` and `node_modules/` are kept in named Docker volumes so host and container dependency installs never collide.
-- No Google Trends data, LLM extraction, or opportunity scoring exists yet — see `PROJECT_SPEC.md` §55 for the full milestone roadmap.
+- No LLM extraction or opportunity scoring exists yet — see `PROJECT_SPEC.md` §55 for the full milestone roadmap.

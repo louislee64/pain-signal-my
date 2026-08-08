@@ -18,6 +18,12 @@ dependencies = [
 dev = [
     "pytest>=8.0,<9",
 ]
+# Google Trends BigQuery discovery (PROJECT_SPEC.md §15A). Deliberately optional:
+# heavy, and unusable without a billed GCP project + service-account credentials.
+# See docs/trends-data-sources.md.
+bigquery = [
+    "google-cloud-bigquery>=3.25,<4",
+]
 
 [project.scripts]
 intelligence = "intelligence.cli:main"

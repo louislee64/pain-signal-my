@@ -1,0 +1,75 @@
+# Google Trends keyword monitoring (PROJECT_SPEC.md §15B).
+#
+# Sync into the `keywords` table with: php artisan keywords:sync
+#
+# Keywords are grouped into clusters on purpose: §15B warns "Do not assume one
+# keyword represents an entire problem." A group is the unit of interpretation;
+# a single keyword inside it is only one weak proxy.
+#
+# Each group nests keywords by language (en / ms / zh) because Malaysian search
+# behaviour is genuinely trilingual (§43) and a problem expressed in Bahasa
+# Malaysia will not show up under its English phrasing at all.
+#
+# IMPORTANT (§16): Google Trends values are RELATIVE interest (0-100), scaled
+# within a single request. Values are NOT comparable across separate
+# collections, which is why every trend_metrics row records its
+# collection_batch. Never read these as absolute search volume.
+#
+# Low-volume queries — which many of the Chinese and Bahasa Malaysia terms below
+# will be in a market Malaysia's size — return no data from Google Trends at
+# all. That is expected: an absent series is "not enough search volume to
+# measure", not "no problem here". Do not infer a zero from a missing series.
+
+groups:
+  sme_finance:
+    en:
+      - e invoice malaysia
+      - invoice software
+      - accounting software
+      - payment reconciliation
+    ms:
+      - e-invois
+      - sistem invois
+      - perisian perakaunan
+    zh:
+      - 电子发票 马来西亚
+      - 会计软件
+
+  inventory:
+    en:
+      - inventory system
+      - stock management
+      - stock count
+      - inventory problem
+    ms:
+      - sistem inventori
+      - pengurusan stok
+      - kira stok
+    zh:
+      - 库存系统
+      - 库存管理
+
+  restaurant:
+    en:
+      - reservation system
+      - restaurant booking
+      - restaurant pos
+      - whatsapp booking
+    ms:
+      - sistem tempahan
+      - tempahan restoran
+    zh:
+      - 餐厅预订系统
+      - 餐厅收银系统
+
+  cost_pressure:
+    en:
+      - supplier price
+      - cost of living malaysia
+    ms:
+      - kos sara hidup
+      - barang mahal
+      - harga makanan
+    zh:
+      - 生活成本
+      - 物价上涨

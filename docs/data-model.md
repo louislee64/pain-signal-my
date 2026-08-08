@@ -1,8 +1,9 @@
-# Data Model — Milestone 2
+# Data Model — Milestone 3
 
-Status: `sources`, `ingestion_runs`, `raw_documents` (Milestone 1) plus `normalized_documents`,
-`topics`, `document_topics`, `problem_signals`, `topic_daily_metrics` (Milestone 2, per
-PROJECT_SPEC.md §20). The commercial CRM tables (§21) and `opportunities` land later.
+Status: `sources`, `ingestion_runs`, `raw_documents` (Milestone 1); `normalized_documents`,
+`topics`, `document_topics`, `problem_signals`, `topic_daily_metrics` (Milestone 2);
+`keywords`, `trend_metrics` (Milestone 3) — all per PROJECT_SPEC.md §20. `official_metrics`,
+the commercial CRM tables (§21) and `opportunities` land later.
 
 ## Schema ownership
 
@@ -158,3 +159,75 @@ constraint for every "no region" row.
 Recomputation is a full rebuild over every date with any `problem_signals` row, not an
 incremental "dirty dates" update — simple and correct at today's data volume; revisit if it
 becomes slow.
+
+## keywords
+
+The Google Trends monitoring list (§15B), synced from `config/keywords.yaml` by
+`php artisan keywords:sync`. Not in §20's table list — §16 names `keyword` and `keyword_group`
+as things to store and §20's `trend_metrics` carries a `keyword_id`, so a keywords table is
+required for that FK to point anywhere.
+
+- Unique on `(keyword, geo)`: the same phrase can legitimately be tracked for different
+  regions.
+- `keyword_group` is the cluster (`sme_finance`, `inventory`, …). §15B is explicit that a
+  single keyword is a weak proxy — the group is the unit of interpretation.
+- `language` (`en`/`ms`/`zh`) exists because Malaysian search is genuinely trilingual (§43),
+  and a problem phrased in Bahasa Malaysia does not surface under its English phrasing.
+- `source` is `config` or `discovered`. This distinction is load-bearing: `keywords:sync`
+  disables config keywords that vanish from the YAML, and must never do that to a term
+  surfaced by a discovery provider (§15A), which was never in the file to begin with.
+
+## trend_metrics
+
+One row per `(keyword_id, date, region)`. Raw observations are written by
+`intelligence trends collect`; the derived columns are filled by a second pass,
+`intelligence trends compute`, because a rolling window can only be computed once the whole
+series is present.
+
+**`interest` is relative, 0-100, never absolute search volume** (§16) — see
+[trends-data-sources.md](./trends-data-sources.md). Two provenance columns exist because of
+that, both from §16's storage list and neither optional:
+
+- `collection_method` — which adapter produced the row.
+- `collection_batch` — a ULID per collection run. Trends scales values to the peak *within a
+  single request*, so two batches are not comparable. Without this marker a later analysis
+  could silently compare differently-scaled runs and read the artefact as a trend.
+
+`region` is `NOT NULL` defaulting to `''` for the same reason as `topic_daily_metrics.region`:
+Postgres treats `NULL` as distinct per row in a unique constraint, which would let unlimited
+duplicate "national level" rows through.
+
+### The derived metrics, defined precisely
+
+Computed by `apps/intelligence/src/intelligence/trends/metrics.py`. §16 names these but does
+not define them, so the definitions chosen are recorded here rather than left implicit:
+
+| Column | Definition |
+|---|---|
+| `rolling_7d` | mean interest over the 7 calendar days ending on this row's date, inclusive |
+| `rolling_30d` | mean interest over the 30 calendar days ending on this row's date |
+| `baseline_90d` | mean interest over the 90 calendar days ending on this row's date |
+| `growth_7d` | percent change of `rolling_7d` vs the 7-day window immediately before it |
+| `growth_30d` | percent change of `rolling_30d` vs the 30-day window immediately before it |
+| `growth_score` | `rolling_7d / baseline_90d` — §16's `trend_signal`; >1 means running hotter than baseline |
+| `z_score` | `(latest interest − baseline_90d) / population stdev of the baseline window` |
+
+Three decisions worth stating, because each has a plausible wrong alternative:
+
+1. **Windows are calendar-day ranges, not counts of observations.** The two providers deliver
+   different granularities — CSV exports are daily or weekly depending on range, the BigQuery
+   discovery dataset is weekly. A count-based window would silently mean "7 weeks" for one
+   provider and "7 days" for another. It also stops a window from reaching back across a
+   collection gap further than intended.
+2. **`None` is used for "undefined", never 0.** Growth against a zero-valued prior window has
+   no finite percentage; a z-score against a perfectly flat baseline has no scale. Returning
+   `0.0` would read as "no change" / "exactly average", which is a different and misleading
+   claim.
+3. **Each date is computed against only the observations up to that date.** Back-filling a
+   history therefore produces exactly the values it would have produced had it been collected
+   day by day — the series is not retroactively rewritten by later data.
+
+`growth_score` uses the 7-day rolling average rather than the single latest reading so one
+spiky day cannot dominate it. Note that on a *weekly* series `rolling_7d` necessarily equals
+that week's raw value (only one observation falls in a 7-day window) — which is why the
+dashboard chart plots `rolling_30d` as its smoothing line.
