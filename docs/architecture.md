@@ -145,6 +145,36 @@ LLM and rule-based extraction coexist rather than compete: they write
 `problem_signals` under different `classification_method` values, so running one never
 destroys the other's evidence, and the scoring engine reads both.
 
+## Dashboard (Milestone 5)
+
+Nuxt pages read Laravel endpoints through the Nitro proxy; no page talks to Postgres
+and no page recomputes a score. That constraint is what keeps the dashboard honest:
+every number it shows was computed by the Python engine and stored, so the page and
+the engine cannot disagree. The "fastest rising" card reads the same stored `growth`
+raw value the detail page renders in its breakdown table.
+
+Design tokens moved from `pages/trends.vue`'s scoped block to
+`assets/css/tokens.css` when four more pages needed them. Scoped styles cannot share
+custom properties, so the alternative was five copies of the palette drifting apart.
+
+`Source::health()` lives on the Eloquent model rather than in `SourceController`
+because the overview's collection block asks the same question the source page does.
+A second implementation would drift silently — one page reporting no problems while
+the other lists three — so a test asserts the two agree.
+
+Two things §36 lists are deliberately absent, both for the same reason: they would
+give the API write access to a pipeline the Python service owns.
+`POST /sources/{id}/run` would hide a long-running collector behind a button;
+scheduling is §38 (Milestone 7). And nothing in the dashboard writes to
+`opportunities` — §52 keeps `status`, `title` and narrative fields human-authored.
+
+`DemoDataSeeder` exists because a dashboard cannot be verified on an empty database
+and the only real source so far (fuel prices) yields no topic matches by design. It
+writes signals and evidence, never `opportunities` rows, so what the pages display
+is the real engine's output rather than a hand-written number that would make a
+broken scorer look fine. Everything is prefixed `demo_`; `demo:purge` removes exactly
+that prefix and nothing else.
+
 ## Why this shape
 
 - Three independently deployable apps sharing two datastores, per `PROJECT_SPEC.md` §8/§9 — no message broker or orchestrator introduced yet (`PROJECT_SPEC.md` §54 explicitly excludes Kafka/Kubernetes for V1).

@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use App\Models\Opportunity;
 use App\Models\Topic;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\SeedsSignals;
 use Tests\TestCase;
 
 class OpportunityEndpointTest extends TestCase
 {
     use RefreshDatabase;
+    use SeedsSignals;
 
     public function test_index_ranks_by_opportunity_score(): void
     {
@@ -95,6 +97,208 @@ class OpportunityEndpointTest extends TestCase
         $this->getJson('/api/v1/opportunities/99999')->assertNotFound();
     }
 
+    public function test_index_filters_by_topic_slug(): void
+    {
+        $wanted = $this->opportunity('Wanted');
+        $this->opportunity('Unwanted');
+        $slug = $wanted->topic->slug;
+
+        $this->getJson("/api/v1/opportunities?topic={$slug}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Wanted');
+    }
+
+    public function test_index_filters_by_target_buyer(): void
+    {
+        $this->opportunity('Owner buys', buyer: 'business_owner');
+        $this->opportunity('Finance buys', buyer: 'finance_department');
+
+        $this->getJson('/api/v1/opportunities?buyer=finance_department')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Finance buys');
+    }
+
+    public function test_confidence_filter_is_a_floor_not_an_exact_match(): void
+    {
+        // §30: the useful question is "show me only what I can believe", not
+        // "confidence exactly 61".
+        $this->opportunity('Believable', confidenceScore: 80);
+        $this->opportunity('Thin', confidenceScore: 20);
+
+        $this->getJson('/api/v1/opportunities?min_confidence=50')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Believable');
+    }
+
+    public function test_index_filters_by_minimum_opportunity_score(): void
+    {
+        $this->opportunity('Strong', opportunityScore: 75);
+        $this->opportunity('Weak', opportunityScore: 30);
+
+        $this->getJson('/api/v1/opportunities?min_opportunity=60')
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Strong');
+    }
+
+    public function test_state_filter_matches_on_where_the_evidence_came_from(): void
+    {
+        $selangor = $this->opportunity('Selangor problem');
+        $johor = $this->opportunity('Johor problem');
+        $this->signal($selangor->topic_id, '2026-08-01', region: 'Selangor');
+        $this->signal($johor->topic_id, '2026-08-01', region: 'Johor');
+
+        $this->getJson('/api/v1/opportunities?state=Johor')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Johor problem');
+    }
+
+    public function test_source_filter_matches_on_where_the_evidence_came_from(): void
+    {
+        $forum = $this->opportunity('From the forum');
+        $official = $this->opportunity('From the agency');
+        $this->signal($forum->topic_id, '2026-08-01', sourceSlug: 'a-forum');
+        $this->signal($official->topic_id, '2026-08-01', sourceSlug: 'an-agency');
+
+        $this->getJson('/api/v1/opportunities?source=an-agency')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'From the agency');
+    }
+
+    public function test_since_filter_excludes_topics_whose_evidence_is_all_older(): void
+    {
+        $recent = $this->opportunity('Still discussed');
+        $stale = $this->opportunity('Went quiet');
+        $this->signal($recent->topic_id, '2026-08-01');
+        $this->signal($stale->topic_id, '2026-01-01');
+
+        $this->getJson('/api/v1/opportunities?since=2026-07-01')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Still discussed');
+    }
+
+    public function test_index_declares_which_spec_33_filters_have_no_data_yet(): void
+    {
+        // A control that silently matches nothing reads as "no opportunities in
+        // retail" rather than "we do not classify industry". Saying so in meta
+        // lets the dashboard omit the control instead of shipping a dead one.
+        $meta = $this->getJson('/api/v1/opportunities')->json('meta');
+
+        $this->assertArrayHasKey('industry', $meta['filters_not_yet_available']);
+        $this->assertArrayHasKey('commercial_stage', $meta['filters_not_yet_available']);
+    }
+
+    public function test_index_echoes_back_the_filters_it_applied(): void
+    {
+        $this->opportunity('Anything', recommendation: 'WATCH');
+
+        $meta = $this->getJson('/api/v1/opportunities?recommendation=WATCH&min_confidence=10')->json('meta');
+
+        $this->assertSame('WATCH', $meta['filters_applied']['recommendation']);
+        $this->assertSame('10', $meta['filters_applied']['min_confidence']);
+    }
+
+    public function test_show_returns_public_text_examples_with_their_source(): void
+    {
+        $opportunity = $this->opportunity('Evidenced');
+        $this->signal($opportunity->topic_id, '2026-08-01', severity: 80, sourceSlug: 'a-forum');
+
+        $evidence = $this->getJson("/api/v1/opportunities/{$opportunity->id}")->json('data.evidence');
+
+        $this->assertSame(1, $evidence['signal_count']);
+        $this->assertSame(1, $evidence['distinct_sources']);
+        $this->assertSame('a-forum', $evidence['examples'][0]['source']);
+        $this->assertNotEmpty($evidence['examples'][0]['excerpt']);
+        // §31: how a signal was produced is part of judging it.
+        $this->assertSame('rule_based_keyword_v1', $evidence['examples'][0]['method']);
+    }
+
+    public function test_distinct_sources_counts_sources_not_documents(): void
+    {
+        // §31's evidence hierarchy turns on independent corroboration. Ten posts
+        // on one forum must not read as ten independent sources.
+        $opportunity = $this->opportunity('One noisy forum');
+        foreach (range(1, 5) as $i) {
+            $this->signal($opportunity->topic_id, '2026-08-01', sourceSlug: 'one-forum');
+        }
+
+        $evidence = $this->getJson("/api/v1/opportunities/{$opportunity->id}")->json('data.evidence');
+
+        $this->assertSame(5, $evidence['signal_count']);
+        $this->assertSame(1, $evidence['distinct_sources']);
+    }
+
+    public function test_show_returns_state_distribution(): void
+    {
+        $opportunity = $this->opportunity('Regional');
+        $this->signal($opportunity->topic_id, '2026-08-01', region: 'Selangor');
+        $this->signal($opportunity->topic_id, '2026-08-02', region: 'Selangor');
+        $this->signal($opportunity->topic_id, '2026-08-03', region: 'Penang');
+
+        $geography = $this->getJson("/api/v1/opportunities/{$opportunity->id}")->json('data.geography');
+
+        $this->assertSame(['Selangor' => 2, 'Penang' => 1], $geography);
+    }
+
+    public function test_show_returns_a_trend_series_and_rolling_windows(): void
+    {
+        $opportunity = $this->opportunity('Trending');
+        $this->signal($opportunity->topic_id, now()->subDays(2)->toDateString());
+        $this->signal($opportunity->topic_id, now()->subDays(40)->toDateString());
+
+        $trend = $this->getJson("/api/v1/opportunities/{$opportunity->id}")->json('data.trend');
+
+        $this->assertCount(2, $trend['series']);
+        $this->assertSame(1, $trend['windows']['mentions_7d']);
+        $this->assertSame(2, $trend['windows']['mentions_90d']);
+    }
+
+    public function test_show_reports_payer_and_affected_role_separately(): void
+    {
+        // §5: the cashier suffers, the owner buys. Collapsing them would point
+        // the commercial model at someone with no budget.
+        $opportunity = $this->opportunity('Split incentive', buyer: 'business_owner');
+        $this->signal(
+            $opportunity->topic_id,
+            '2026-08-01',
+            payerType: 'business_owner',
+            evidence: ['affected_role' => 'cashier'],
+        );
+
+        $buyer = $this->getJson("/api/v1/opportunities/{$opportunity->id}")->json('data.buyer_evidence');
+
+        $this->assertSame('business_owner', $buyer['suggested_buyer']);
+        $this->assertSame(1, $buyer['payer_types']['business_owner']);
+        $this->assertSame(1, $buyer['affected_roles']['cashier']);
+    }
+
+    public function test_show_declares_the_sections_that_arrive_in_milestone_6(): void
+    {
+        $opportunity = $this->opportunity('Not yet validated');
+
+        $meta = $this->getJson("/api/v1/opportunities/{$opportunity->id}")->json('meta');
+
+        $this->assertArrayHasKey('customer_interviews', $meta['sections_not_yet_available']);
+        $this->assertArrayHasKey('commercial_evidence', $meta['sections_not_yet_available']);
+    }
+
+    public function test_show_works_for_an_opportunity_with_no_evidence_at_all(): void
+    {
+        $opportunity = $this->opportunity('Bare');
+
+        $response = $this->getJson("/api/v1/opportunities/{$opportunity->id}");
+
+        $response->assertOk();
+        $this->assertSame(0, $response->json('data.evidence.signal_count'));
+        $this->assertSame([], $response->json('data.geography'));
+        $this->assertSame([], $response->json('data.trend.series'));
+    }
+
     private function opportunity(
         string $title,
         ?float $opportunityScore = 50,
@@ -102,6 +306,7 @@ class OpportunityEndpointTest extends TestCase
         string $recommendation = 'WATCH',
         string $status = 'observed',
         ?array $components = null,
+        ?string $buyer = 'business_owner',
     ): Opportunity {
         $topic = Topic::create([
             'slug' => 'topic-'.str()->random(8),
@@ -109,7 +314,7 @@ class OpportunityEndpointTest extends TestCase
             'enabled' => true,
         ]);
 
-        return Opportunity::create([
+        $opportunity = Opportunity::create([
             'topic_id' => $topic->id,
             'title' => $title,
             'status' => $status,
@@ -119,8 +324,11 @@ class OpportunityEndpointTest extends TestCase
             'opportunity_score' => $opportunityScore,
             'confidence_score' => $confidenceScore,
             'score_components' => $components ?? [],
+            'target_buyer' => $buyer,
             'scoring_config_version' => '1',
             'scored_at' => now(),
         ]);
+
+        return $opportunity->setRelation('topic', $topic);
     }
 }

@@ -68,7 +68,7 @@ function formatPercent(value: string | null): string {
 </script>
 
 <template>
-  <main class="page">
+  <div class="page">
     <header class="page__header">
       <h1>Search Trend Signals</h1>
       <p class="page__sub">
@@ -164,59 +164,24 @@ function formatPercent(value: string | null): string {
         </div>
       </section>
     </template>
-  </main>
+  </div>
 </template>
 
 <style scoped>
 .page {
-  color-scheme: light;
-  --plane: #f9f9f7;
-  --surface-1: #fcfcfb;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --border: rgba(11, 11, 11, 0.1);
-  --accent: #2a78d6;
-
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  background: var(--plane);
-  color: var(--text-primary);
-  min-height: 100vh;
-  padding: 2rem 1.5rem 4rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme='light'])) .page {
-    color-scheme: dark;
-    --plane: #0d0d0d;
-    --surface-1: #1a1a19;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --border: rgba(255, 255, 255, 0.1);
-    --accent: #3987e5;
-  }
-}
-
-:root[data-theme='dark'] .page {
-  color-scheme: dark;
-  --plane: #0d0d0d;
-  --surface-1: #1a1a19;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
-  --border: rgba(255, 255, 255, 0.1);
-  --accent: #3987e5;
+  /* Tokens now come from assets/css/tokens.css, shared with every other page.
+     They lived here until Milestone 5 added four more pages that needed them. */
+  padding-bottom: 1rem;
 }
 
 .page__header {
-  max-width: 1100px;
-  margin: 0 auto 1.25rem;
+  margin: 0 0 1.25rem;
 }
 
 h1 {
-  font-size: 1.5rem;
-  margin: 0 0 0.25rem;
+  font-size: 1.4rem;
+  margin: 0 0 0.3rem;
+  letter-spacing: -0.015em;
 }
 
 .page__sub {
@@ -226,8 +191,7 @@ h1 {
 }
 
 .notice {
-  max-width: 1100px;
-  margin: 0 auto 1.25rem;
+  margin: 0 0 1.25rem;
   padding: 0.7rem 0.9rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -238,7 +202,7 @@ h1 {
 }
 
 .notice--error {
-  color: #d03b3b;
+  color: var(--status-critical);
 }
 
 .notice code {
@@ -246,8 +210,6 @@ h1 {
 }
 
 .layout {
-  max-width: 1100px;
-  margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(220px, 300px) 1fr;
   gap: 1.5rem;

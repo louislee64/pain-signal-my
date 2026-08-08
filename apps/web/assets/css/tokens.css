@@ -1,0 +1,129 @@
+/*
+ * Design tokens, defined once.
+ *
+ * These lived duplicated inside pages/trends.vue's scoped block until Milestone
+ * 5 needed four more pages. Scoped styles cannot share tokens, so every page
+ * would have carried its own copy of the palette and they would have drifted —
+ * which is how a dashboard ends up with three slightly different greys.
+ *
+ * Light is the base definition on bare :root. Dark redefines only the tokens,
+ * twice: once under prefers-color-scheme for the default "system" setting, and
+ * once under [data-theme='dark'] so an explicit choice wins in both directions.
+ * No colour is ever defined ONLY inside a media query.
+ */
+
+:root {
+  color-scheme: light;
+
+  --plane: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --surface-2: #f2f2ef;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --border: rgba(11, 11, 11, 0.1);
+  --border-strong: rgba(11, 11, 11, 0.22);
+
+  --accent: #2a78d6;
+  --accent-soft: rgba(42, 120, 214, 0.12);
+
+  /*
+   * Status colours (§35's recommendations, source health). Reserved: never
+   * reused as "series 4". Every one of them ships beside a text label, so
+   * identity is never carried by colour alone.
+   */
+  --status-good: #1f7a4d;
+  --status-good-soft: rgba(31, 122, 77, 0.12);
+  --status-warning: #9a6200;
+  --status-warning-soft: rgba(154, 98, 0, 0.12);
+  --status-serious: #b04a12;
+  --status-serious-soft: rgba(176, 74, 18, 0.12);
+  --status-critical: #b3261e;
+  --status-critical-soft: rgba(179, 38, 30, 0.12);
+  --status-neutral: #52514e;
+  --status-neutral-soft: rgba(82, 81, 78, 0.1);
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --max-width: 1180px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --plane: #0d0d0d;
+    --surface-1: #1a1a19;
+    --surface-2: #232322;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.24);
+
+    --accent: #6aa9f0;
+    --accent-soft: rgba(106, 169, 240, 0.16);
+
+    /* Re-stepped rather than reused: the light steps do not carry enough
+       contrast against a dark surface to stay legible. */
+    --status-good: #5ec489;
+    --status-good-soft: rgba(94, 196, 137, 0.16);
+    --status-warning: #e0aa4e;
+    --status-warning-soft: rgba(224, 170, 78, 0.16);
+    --status-serious: #f0925c;
+    --status-serious-soft: rgba(240, 146, 92, 0.16);
+    --status-critical: #f2837c;
+    --status-critical-soft: rgba(242, 131, 124, 0.16);
+    --status-neutral: #c3c2b7;
+    --status-neutral-soft: rgba(195, 194, 183, 0.12);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --plane: #0d0d0d;
+  --surface-1: #1a1a19;
+  --surface-2: #232322;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.24);
+
+  --accent: #6aa9f0;
+  --accent-soft: rgba(106, 169, 240, 0.16);
+
+  --status-good: #5ec489;
+  --status-good-soft: rgba(94, 196, 137, 0.16);
+  --status-warning: #e0aa4e;
+  --status-warning-soft: rgba(224, 170, 78, 0.16);
+  --status-serious: #f0925c;
+  --status-serious-soft: rgba(240, 146, 92, 0.16);
+  --status-critical: #f2837c;
+  --status-critical-soft: rgba(242, 131, 124, 0.16);
+  --status-neutral: #c3c2b7;
+  --status-neutral-soft: rgba(195, 194, 183, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--plane);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* Numbers in tables and figures are read by comparing them column-wise, which
+   proportional digits make harder than it needs to be. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

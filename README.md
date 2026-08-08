@@ -2,9 +2,9 @@
 
 Problem intelligence, opportunity discovery, and commercial-validation platform for Malaysian SME operational friction.
 
-See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, and [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation.
+See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, and [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API.
 
-**Current status:** Milestone 4 — Intelligence Layer. Adds the deterministic opportunity scoring engine (pain / commercial / opportunity / confidence, every weight in `config/scoring.yaml`, every number explainable via `score_components`) and pluggable LLM problem extraction with per-call cost tracking, hard budget ceilings and a fixture-based evaluation suite. **LLM extraction is off by default** — nothing spends money until `config/llm.yaml` says so.
+**Current status:** Milestone 5 — Dashboard. Adds the opportunity dashboard: an overview answering "what should I investigate or sell this week?", a detail page rendering every score's stored breakdown and evidence, topic pages, and a source-health page that catches the quiet failure (a collector that succeeds and returns nothing). LLM extraction remains off by default — nothing spends money until `config/llm.yaml` says so.
 
 ## Stack
 
@@ -139,14 +139,39 @@ Ranks every topic on pain, commercial attractiveness, blended opportunity and co
 Confidence is a *separate* score, not folded into opportunity: "looks attractive, evidence
 is still thin" is more useful than one number pretending to certainty.
 
-```bash
-curl http://localhost:8000/api/v1/opportunities
-curl http://localhost:8000/api/v1/opportunities/1   # full score_components breakdown
-```
-
 Every weight lives in [`config/scoring.yaml`](./config/scoring.yaml) and every score stores
 its own arithmetic — each dimension's raw input, normalized value, weight and contribution.
 See [`docs/scoring-model.md`](./docs/scoring-model.md).
+
+## Dashboard
+
+Open <http://localhost:3000>. The overview answers §33's question — *what should I
+investigate or sell this week?* — with §33's five cards and a ranked table where every
+row links to the stored breakdown behind its score.
+
+```bash
+curl http://localhost:8000/api/v1/dashboard
+curl http://localhost:8000/api/v1/opportunities
+curl http://localhost:8000/api/v1/opportunities/1   # §34 sections + score_components
+curl http://localhost:8000/api/v1/topics
+curl http://localhost:8000/api/v1/sources           # health, with reasons
+```
+
+The dashboard needs data to be worth opening, and the one real source wired up so far
+(fuel prices) matches no topic keywords by design. Seed a demo set:
+
+```bash
+docker compose exec api php artisan db:seed --class=DemoDataSeeder
+docker compose exec intelligence python -m intelligence.cli aggregate
+docker compose exec intelligence python -m intelligence.cli score
+
+docker compose exec api php artisan demo:purge    # removes exactly what it created
+```
+
+Everything it creates is prefixed `demo_` and marked fabricated. It writes signals and
+never `opportunities` rows, so what the dashboard shows is the real engine's output —
+a hand-written score would make a broken scorer look fine. See
+[`docs/dashboard.md`](./docs/dashboard.md).
 
 ## LLM extraction (optional, costs money)
 

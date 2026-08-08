@@ -191,18 +191,37 @@ def seed_documents(engine, count: int = 1, text: str = "A" * 200) -> list[int]:
 
 
 def signals(engine) -> list:
+    """This fixture's LLM signals only.
+
+    Scoped to the fixture topic, not to the classification method: other rows in
+    this shared database legitimately carry the same method (demo data does),
+    and a global query would make every assertion here depend on what else
+    happens to be seeded.
+    """
+
     with engine.begin() as conn:
+        topic_id = conn.execute(
+            select(topics_table.c.id).where(topics_table.c.slug == TOPIC_SLUG)
+        ).scalar()
         return conn.execute(
-            select(problem_signals_table).where(
-                problem_signals_table.c.classification_method == EXTRACTION_METHOD
-            )
+            select(problem_signals_table)
+            .where(problem_signals_table.c.classification_method == EXTRACTION_METHOD)
+            .where(problem_signals_table.c.topic_id == topic_id)
         ).all()
 
 
 def usage_rows(engine) -> list:
+    """Usage rows charged against this fixture's documents only."""
+
     with engine.begin() as conn:
+        source_id = conn.execute(
+            select(sources_table.c.id).where(sources_table.c.slug == SOURCE_SLUG)
+        ).scalar()
+        raw_ids = select(raw_documents_table.c.id).where(
+            raw_documents_table.c.source_id == source_id
+        )
         return conn.execute(
-            select(ai_usage_table).where(ai_usage_table.c.model == "stub-model-1")
+            select(ai_usage_table).where(ai_usage_table.c.document_id.in_(raw_ids))
         ).all()
 
 
@@ -496,6 +515,7 @@ class TestPersistence:
             topic_id = conn.execute(
                 select(topics_table.c.id).where(topics_table.c.slug == TOPIC_SLUG)
             ).scalar_one()
+        assert len(rows) == 1
         assert rows[0].topic_id == topic_id
 
     def test_an_invented_slug_is_dropped_not_guessed(self, engine):

@@ -315,7 +315,12 @@ def test_topics_with_no_signals_produce_no_opportunity(engine):
     # The real fuelprice dataset behaves exactly like this: numeric price data
     # matches no topic keywords, so it yields no signals and therefore no
     # opportunity. Silence is the correct output, not a zero-scored row.
-    result = score_all_topics(engine, as_of=TODAY)
+    #
+    # Asserts on THIS topic rather than on the run's total. The run count depends
+    # on whatever else the shared database holds — demo data, another test's
+    # leftovers — so a global assertion here tests the environment, not the
+    # engine.
+    score_all_topics(engine, as_of=TODAY)
 
-    assert result["scored"] == 0
+    assert _opportunity(engine) is None
     assert _opportunity(engine) is None

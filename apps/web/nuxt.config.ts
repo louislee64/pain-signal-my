@@ -9,6 +9,11 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
 
+  // Design tokens are global rather than per-page scoped styles: five pages
+  // each carrying their own copy of the palette is how three slightly
+  // different greys end up shipping.
+  css: ['~/assets/css/tokens.css'],
+
   runtimeConfig: {
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '/api/v1',

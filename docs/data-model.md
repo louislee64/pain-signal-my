@@ -1,9 +1,11 @@
-# Data Model — Milestone 4
+# Data Model — Milestone 5
 
 Status: `sources`, `ingestion_runs`, `raw_documents` (Milestone 1); `normalized_documents`,
 `topics`, `document_topics`, `problem_signals`, `topic_daily_metrics` (Milestone 2);
 `keywords`, `trend_metrics` (Milestone 3); `opportunities`, `ai_usage` (Milestone 4) — all
-per PROJECT_SPEC.md §20. `official_metrics` and the commercial CRM tables (§21) land later.
+per PROJECT_SPEC.md §20. Milestone 5 added no tables: the dashboard reads what the
+pipeline already stores, which is the check that Milestone 4 stored enough.
+`official_metrics` and the commercial CRM tables (§21) land later.
 
 ## Schema ownership
 

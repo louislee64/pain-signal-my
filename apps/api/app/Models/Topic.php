@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Topic extends Model
 {
@@ -28,5 +29,16 @@ class Topic extends Model
     public function children(): HasMany
     {
         return $this->hasMany(Topic::class, 'parent_id');
+    }
+
+    public function problemSignals(): HasMany
+    {
+        return $this->hasMany(ProblemSignal::class);
+    }
+
+    /** One opportunity per topic — the scoring engine refreshes in place. */
+    public function opportunity(): HasOne
+    {
+        return $this->hasOne(Opportunity::class);
     }
 }

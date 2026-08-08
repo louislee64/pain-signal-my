@@ -9,6 +9,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NormalizedDocument extends Model
 {
+    // The table has no created_at/updated_at at all — `processed_at` is the
+    // only time this row cares about. Both constants must be nulled, not just
+    // UPDATED_AT: Eloquent otherwise writes a created_at column that does not
+    // exist, and nothing had inserted through this model until now so the gap
+    // stayed hidden.
+    const CREATED_AT = null;
+
     const UPDATED_AT = null;
 
     protected $fillable = [
