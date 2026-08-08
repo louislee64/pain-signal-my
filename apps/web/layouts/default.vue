@@ -11,6 +11,7 @@ const links = [
   { to: '/topics', label: 'Topics' },
   { to: '/trends', label: 'Search trends' },
   { to: '/reports', label: 'Reports' },
+  { to: '/outcomes', label: 'Outcomes' },
   { to: '/sources', label: 'Sources' },
 ]
 

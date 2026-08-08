@@ -235,6 +235,29 @@ companion for §38's conditional fetching. `SourceUnchanged` is an exception rat
 than an empty iterator because "unchanged" and "empty" are different outcomes, and
 `last_successful_sync` is separate from `last_synced_at` for the same reason.
 
+## The feedback loop (Milestone 8)
+
+Two tables and one analyser close §57's loop. `opportunity_revenue` is separate
+from `commercial_evidence` because "something happened" and "money arrived" are
+different claims; `opportunity_outcomes` snapshots the score and the counts at
+conclusion rather than joining them live, because a live score has already been
+dragged toward the answer by the evidence recorded along the way.
+
+`CalibrationAnalyser` is the only component in the system whose subject is the
+system. Its two defining constraints are both refusals: it never writes
+`config/scoring.yaml` (§52, applied to the model itself), and it declines to
+conclude below a sample size — every finding carries its support count, and the
+`sample.sufficient` flag exists so no consumer can mistake "the model is
+miscalibrated" for "we have four data points".
+
+`SuccessMetrics` keeps §56's technical/business split rather than flattening it.
+The state it is designed to make visible is a green technical panel above an empty
+business panel: everything runs and nothing has been sold.
+
+§59's machine learning is deliberately absent — the spec opens that section with
+"Do NOT start here", and `opportunity_outcomes` is shaped as its eventual training
+set.
+
 ## Why this shape
 
 - Three independently deployable apps sharing two datastores, per `PROJECT_SPEC.md` §8/§9 — no message broker or orchestrator introduced yet (`PROJECT_SPEC.md` §54 explicitly excludes Kafka/Kubernetes for V1).
@@ -258,8 +281,11 @@ one key (as done for `SOURCES_REGISTRY_PATH`), not via `env_file:`.
 
 ## Not yet implemented
 
-`official_metrics` (§20). Milestone 8 is manual market validation — the developer
-testing top opportunities against real businesses — which needs no new code. `LLMProvider.classify_problem()` and `generate_summary()` are
+`official_metrics` (§20), and §59's machine learning, which the spec explicitly
+defers until enough outcome data exists. The practical gap is data rather than
+code: the only wired source is fuel prices, which matches no topic keywords by
+design, so real validation needs a text source (a forum or review collector) via
+`docs/adding-a-data-source.md`. `LLMProvider.classify_problem()` and `generate_summary()` are
 declared but raise: the rule-based classifier already assigns topics deterministically and for
 free, and no milestone needs summaries yet — better an unimplemented method than a plausible
 stub. See `PROJECT_SPEC.md` §55 for the milestone sequence.

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\CommercialValidationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\OpportunityController;
+use App\Http\Controllers\Api\OutcomeController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SourceController;
 use App\Http\Controllers\Api\TopicController;
@@ -52,6 +53,12 @@ Route::prefix('v1')->group(function () {
         Route::patch('/experiments/{experimentId}', [CommercialValidationController::class, 'updateExperiment'])
             ->whereNumber('experimentId');
         Route::patch('/stage', [CommercialValidationController::class, 'updateStage']);
+
+        // §56's ultimate KPI and §58's outcome dataset. These close §57's loop:
+        // everything else measures what the world said; these record what
+        // happened when someone went and tried to sell something.
+        Route::post('/revenue', [OutcomeController::class, 'storeRevenue']);
+        Route::post('/outcome', [OutcomeController::class, 'storeOutcome']);
         // Human-authored fields (§52). The only writer of target_buyer, which
         // §7 Gate 1 requires — the scoring engine never touches these columns.
         Route::patch('/', [CommercialValidationController::class, 'updateNarrative']);
@@ -60,6 +67,11 @@ Route::prefix('v1')->group(function () {
     // Topic pages. Keyed by slug — the stable identifier in config/topics.yaml.
     Route::get('/topics', [TopicController::class, 'index']);
     Route::get('/topics/{slug}', [TopicController::class, 'show']);
+
+    // §58's dataset, §57's feedback loop, §56's metrics.
+    Route::get('/outcomes', [OutcomeController::class, 'index']);
+    Route::get('/calibration', [OutcomeController::class, 'calibration']);
+    Route::get('/metrics', [OutcomeController::class, 'metrics']);
 
     // Reports and alerts (PROJECT_SPEC.md §36, §39, §40).
     Route::get('/reports', [ReportController::class, 'index']);

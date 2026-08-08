@@ -6,6 +6,7 @@ use App\Support\CommercialStage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Opportunity extends Model
 {
@@ -55,6 +56,18 @@ class Opportunity extends Model
     public function stageTransitions(): HasMany
     {
         return $this->hasMany(OpportunityStageTransition::class);
+    }
+
+    /** §56's ultimate KPI: money actually received. */
+    public function revenue(): HasMany
+    {
+        return $this->hasMany(OpportunityRevenue::class);
+    }
+
+    /** §58: one conclusion per opportunity — concluding twice is an edit. */
+    public function outcome(): HasOne
+    {
+        return $this->hasOne(OpportunityOutcome::class);
     }
 
     /**

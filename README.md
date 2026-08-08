@@ -2,9 +2,9 @@
 
 Problem intelligence, opportunity discovery, and commercial-validation platform for Malaysian SME operational friction.
 
-See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API, [`docs/commercial-validation.md`](./docs/commercial-validation.md) for the funnel, the gates and the personal-data posture, and [`docs/reporting.md`](./docs/reporting.md) for the weekly report, alerting and the schedule.
+See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API, [`docs/commercial-validation.md`](./docs/commercial-validation.md) for the funnel, the gates and the personal-data posture, [`docs/reporting.md`](./docs/reporting.md) for the weekly report, alerting and the schedule, and [`docs/outcomes-and-calibration.md`](./docs/outcomes-and-calibration.md) for the feedback loop.
 
-**Current status:** Milestone 7 — Reporting. Adds §39's weekly opportunity report (generated from stored data, hash-verified reproducible), §40's alerting with per-condition deduplication, notification channels (log / Discord / email, off by default), §38's schedule, and conditional fetching so scheduled ingestion stops re-downloading unchanged datasets. LLM extraction remains off by default.
+**Current status:** Milestone 8 — Real Market Validation. The loop closes: §58's outcome dataset records what happened when an opportunity met a real business, §56's `opportunity_revenue` answers *"did this system actually help create revenue?"*, and §57's calibration report says where the scoring model was wrong — while refusing to conclude from too little data and never editing the weights itself. All eight milestones in `PROJECT_SPEC.md` §55 are implemented.
 
 ## Stack
 
@@ -273,6 +273,43 @@ docker compose exec api php artisan schedule:work    # nothing runs it by defaul
 §38's schedule: ingest → normalize → classify → trends → aggregate → score daily,
 alerts after scoring, report weekly on Monday. LLM extraction is deliberately
 absent — it is the one stage that spends money per document.
+
+## Outcomes and calibration
+
+The loop the whole system exists to close. Record what happened when you took an
+opportunity to a real business, then ask whether the score was right.
+
+```bash
+# §58 — conclude an opportunity
+curl -X POST $API/opportunities/4/outcome -H 'Content-Type: application/json' -d '{
+  "outcome": "no_budget",
+  "reason": "Six owners agreed the problem is real. None had a budget line for it.",
+  "concluded_at": "2026-08-09"}'
+
+# §56 — money actually received (the ultimate KPI)
+curl -X POST $API/opportunities/2/revenue -H 'Content-Type: application/json' -d '{
+  "revenue_type": "paid_pilot", "amount": 4500,
+  "company_ref": "retailer-c", "received_at": "2026-08-05"}'
+
+# §57 — where was the model wrong?
+docker compose exec api php artisan calibration:report
+```
+
+Or read it at `/outcomes` in the dashboard.
+
+**The score is snapshotted, not joined.** By the time you conclude an outcome the
+live score has already been dragged toward the answer by the evidence you logged
+along the way — comparing it against the outcome it helped produce measures
+nothing.
+
+**Revenue is not evidence.** A signed proposal is one piece of evidence and zero
+revenue until it is paid; a pilot invoiced monthly is one piece of evidence and
+many revenue rows. Summing `commercial_evidence.value` would make §56's question
+unanswerable.
+
+**Calibration never edits `config/scoring.yaml`,** and it refuses to conclude
+below 8 outcomes. §52 applies with more force here than anywhere: auto-tuning
+would let a handful of results silently rewrite the model that ranks everything.
 
 ## Running tests
 

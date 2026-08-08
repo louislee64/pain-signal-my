@@ -1,11 +1,12 @@
-# Data Model — Milestone 7
+# Data Model — Milestone 8
 
 Status: `sources`, `ingestion_runs`, `raw_documents` (Milestone 1); `normalized_documents`,
 `topics`, `document_topics`, `problem_signals`, `topic_daily_metrics` (Milestone 2);
 `keywords`, `trend_metrics` (Milestone 3); `opportunities`, `ai_usage` (Milestone 4);
 `customer_interviews`, `commercial_evidence`, `experiments`,
-`opportunity_stage_transitions` (Milestone 6); `reports`, `alerts` (Milestone 7) —
-per PROJECT_SPEC.md §20/§21.
+`opportunity_stage_transitions` (Milestone 6); `reports`, `alerts` (Milestone 7);
+`opportunity_revenue`, `opportunity_outcomes` (Milestone 8) — per PROJECT_SPEC.md
+§20/§21/§56/§58.
 Milestone 5 added no tables: the dashboard reads what the pipeline already stores,
 which was the check that Milestone 4 stored enough. `official_metrics` lands later.
 
@@ -417,3 +418,45 @@ including a 304 or a failure. Conflating them would make a source that has been
 erroring for a week look freshly synced — and `since` resumes from
 `last_successful_sync`, so a failed run does not cause the next one to skip
 whatever was published in between.
+
+## opportunity_revenue
+
+§56's ultimate KPI: money actually received.
+
+Separate from `commercial_evidence` even though both carry a value, and the
+separation is what makes the KPI answerable. Evidence records *that something
+happened* as a signal about how real an opportunity is; this records *money
+received* as an accounting fact. A signed proposal worth RM6,000 is one piece of
+evidence and zero revenue until paid; a pilot invoiced monthly is one piece of
+evidence and many revenue rows. Summing `commercial_evidence.value` would count
+proposals that never converted and count a running pilot once.
+
+`amount` is non-zero rather than positive: refunds and corrections are negative
+rows, because the original payment did happen and deleting it would lose that.
+
+`company_ref` is pseudonymous (§21), so "revenue from how many distinct
+businesses" is answerable without naming any of them.
+
+## opportunity_outcomes
+
+§58's dataset — "training data for future scoring improvements", and the row that
+closes §57's loop.
+
+`initial_score` is the column everything rests on, and the easiest to get wrong.
+It is **snapshotted at conclusion, never read live**. The score moves as evidence
+accumulates, so by the time an outcome is recorded the score has already been
+dragged toward the answer by the interviews and evidence logged along the way —
+comparing them would measure nothing. The API refuses a caller-supplied value for
+the same reason. `initial_score_components` is copied rather than referenced,
+because `config/scoring.yaml`'s weights are expected to change and this must
+survive that.
+
+The counted fields are frozen for the same reason, and default from recorded
+evidence rather than being re-typed.
+
+Unique on `opportunity_id`: concluding twice means the first conclusion was wrong,
+which is an edit rather than a second row.
+
+`reason` is nullable in the schema and required by the API. §58's nine categories
+cannot hold what actually happened, and a year later the reason is the part worth
+reading.
