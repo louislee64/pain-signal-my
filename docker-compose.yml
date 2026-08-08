@@ -89,6 +89,9 @@ services:
       SOURCES_REGISTRY_PATH: /config/sources.yaml
       TOPICS_REGISTRY_PATH: /config/topics.yaml
       SIGNAL_RULES_PATH: /config/signal_rules.yaml
+      SCORING_CONFIG_PATH: /config/scoring.yaml
+      LLM_CONFIG_PATH: /config/llm.yaml
+      EVAL_CASES_PATH: /app/evaluation/cases.yaml
     depends_on:
       postgres:
         condition: service_healthy

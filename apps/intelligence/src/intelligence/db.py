@@ -205,6 +205,52 @@ topic_daily_metrics_table = Table(
 )
 
 
+opportunities_table = Table(
+    "opportunities",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("topic_id", Integer, ForeignKey("topics.id"), nullable=False, unique=True),
+    Column("title", String, nullable=False),
+    Column("description", Text, nullable=True),
+    Column("industry_id", Integer, nullable=True),
+    Column("target_buyer", String, nullable=True),
+    Column("status", String, nullable=False),
+    Column("pain_score", Numeric(5, 2), nullable=True),
+    Column("commercial_score", Numeric(5, 2), nullable=True),
+    Column("opportunity_score", Numeric(5, 2), nullable=True),
+    Column("confidence_score", Numeric(5, 2), nullable=True),
+    Column("recommendation", String, nullable=True),
+    Column("score_components", JSONB, nullable=True),
+    Column("scoring_config_version", String, nullable=True),
+    Column("scored_at", DateTime(timezone=True), nullable=True),
+    Column("problem_statement", Text, nullable=True),
+    Column("existing_workaround", Text, nullable=True),
+    Column("possible_solution", Text, nullable=True),
+    Column("monetization_model", String, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+ai_usage_table = Table(
+    "ai_usage",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("provider", String, nullable=False),
+    Column("model", String, nullable=False),
+    Column("operation", String, nullable=False),
+    Column("input_tokens", Integer, nullable=False),
+    Column("output_tokens", Integer, nullable=False),
+    Column("estimated_cost", Numeric(12, 6), nullable=False),
+    Column("currency", String(3), nullable=False),
+    Column("document_id", String(26), ForeignKey("raw_documents.id"), nullable=True),
+    Column("prompt_version", String, nullable=True),
+    Column("processing_version", String, nullable=True),
+    Column("succeeded", Boolean, nullable=False),
+    Column("error", Text, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+
 @lru_cache(maxsize=1)
 def get_engine() -> Engine:
     return create_engine(Settings.from_env().database_url)

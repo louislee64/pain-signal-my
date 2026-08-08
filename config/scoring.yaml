@@ -1,0 +1,198 @@
+# Scoring model (PROJECT_SPEC.md §26-§30, §35).
+#
+# §26 is explicit: "All weights must live in config/scoring.yaml. Do not
+# hard-code them." Nothing in apps/intelligence/src/intelligence/scoring/
+# carries a number that isn't read from this file.
+#
+# Every weight here is a STARTING HYPOTHESIS, in the spec's own words. §57 is
+# the point of the whole system: real commercial outcomes feed back and these
+# numbers get recalibrated against what actually sold. Treat a change here as a
+# change to a business assumption, not a config tweak — the tests in
+# tests/scoring/ pin the arithmetic, not the values, so weights can move without
+# breaking them.
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# Pain Score (§26) — how significant the problem appears to be.
+# ---------------------------------------------------------------------------
+pain_score:
+  weights:
+    mention_frequency: 0.30
+    growth: 0.25
+    severity: 0.20
+    geographic_spread: 0.15
+    search_interest: 0.10
+
+# ---------------------------------------------------------------------------
+# Commercial Score (§27) — how attractive it is as a business.
+# ---------------------------------------------------------------------------
+commercial_score:
+  weights:
+    payer_clarity: 0.25
+    recurrence: 0.20
+    economic_impact: 0.20
+    implementation_fit: 0.15
+    urgency: 0.10
+    commercial_evidence: 0.10
+
+# ---------------------------------------------------------------------------
+# Opportunity Score (§29).
+# ---------------------------------------------------------------------------
+opportunity_score:
+  weights:
+    pain_score: 0.45
+    commercial_score: 0.55
+
+  # §29: "This stops AI-generated speculation from outranking actual paying
+  # customers." Until a real human has confirmed money changes hands, an
+  # opportunity cannot present as a top-tier certainty however good the
+  # inferred signals look.
+  uncommercially_validated_cap: 79
+
+  # §29's "Later:" block — `paid_pilot => commercial_evidence += major_bonus`,
+  # `repeat_paid_customer => += stronger_bonus`.
+  #
+  # These are applied to the blended opportunity score, NOT to the
+  # commercial_evidence dimension, and that is a deliberate reading. As a
+  # dimension, commercial_evidence carries §27's documented 0.10 weight, so even
+  # a perfect 100 moves the final score by at most 5.5 points — nowhere near
+  # enough for real revenue to outrank a maxed-out speculative topic, which is
+  # the stated purpose of the clause. Raising the §27 weight instead would
+  # contradict a number the spec states explicitly and says should grow "
+  # eventually", not now. So the bonus lives here, as the separate mechanism
+  # §29 describes it as.
+  paid_pilot_bonus: 15
+  repeat_customer_bonus: 30
+
+# ---------------------------------------------------------------------------
+# Confidence Score (§30) — deliberately SEPARATE from opportunity score.
+# A high opportunity score with low confidence means "looks attractive, but the
+# evidence is still weak", which the spec argues is far more useful than
+# pretending a single number is certain.
+#
+# §30 writes this as a bare sum of five terms. A bare sum has no bounded range,
+# so it is implemented as a weighted mean of five 0-100 components — same five
+# inputs, same relative meaning, but it lands on the 0-100 scale the dashboard
+# displays alongside opportunity score.
+# ---------------------------------------------------------------------------
+confidence_score:
+  weights:
+    source_diversity: 0.25
+    sample_size: 0.25
+    data_recency: 0.20
+    commercial_validation: 0.15
+    classification_confidence: 0.15
+
+# ---------------------------------------------------------------------------
+# Normalization (§26: "Normalize dimensions to 0-100").
+#
+# Raw inputs are counts, percentages and dates — none of them natively 0-100.
+# Each `*_target` is the value at which a dimension is considered fully
+# saturated (scores 100); anything above is clipped rather than allowed to
+# dominate. These targets are the most assumption-laden numbers in the file.
+# ---------------------------------------------------------------------------
+normalization:
+  # Distinct problem_signals for a topic in the scoring window.
+  mention_frequency_target: 50
+
+  # Percent growth in mentions vs the previous window that counts as "fully
+  # growing". Decline maps to 0 rather than a negative contribution — a
+  # shrinking problem is uninteresting, not anti-interesting.
+  growth_percent_target: 100.0
+
+  # Distinct regions a topic appears in. Malaysia has 16 states/territories;
+  # appearing in a third of them already signals a national rather than local
+  # problem.
+  geographic_spread_target: 5
+
+  # Google Trends growth_score (rolling_7d / baseline_90d) that counts as full
+  # search interest. 2.0 = currently running at twice its own baseline.
+  search_interest_growth_target: 2.0
+
+  # Distinct sources corroborating a topic (§31's evidence hierarchy: multiple
+  # independent sources outrank any single one).
+  source_diversity_target: 3
+
+  # Signals needed before sample size stops limiting confidence.
+  sample_size_target: 30
+
+  # Confidence decays to 0 over this many days since the most recent signal.
+  data_recency_halflife_days: 30
+
+# §27's `recurrence`, mapped from problem_signals.frequency_hint, which the
+# rule-based extractor (§23) sets from explicit "every day"/"setiap hari"/"每天"
+# style phrases. A recurring problem is worth far more than a one-off one.
+recurrence_scores:
+  daily: 100
+  weekly: 70
+  monthly: 40
+  unknown: 20
+
+# ---------------------------------------------------------------------------
+# Implementation Fit (§28) — the guardrail that stops the system recommending
+# work this project cannot realistically build or sell.
+#
+# Keyed by topic slug from config/topics.yaml. A topic absent here takes
+# `default`. §28 says to raise scores for things solvable by web/mobile apps,
+# API integration, workflow and AI automation, dashboards, reporting, ERP/POS
+# integration, reservation, inventory, billing and customer-service workflow —
+# and to lower them where success needs heavy manufacturing, medical
+# intervention, mass logistics, policy change, network effects or large capex.
+# ---------------------------------------------------------------------------
+implementation_fit:
+  default: 50
+
+  by_topic:
+    # Squarely in the "integration + workflow automation" sweet spot.
+    billing_invoice: 95
+    software_integration: 95
+    inventory_stock: 90
+    booking_reservation: 90
+    workflow_manual_process: 90
+    data_reporting: 85
+    customer_service: 80
+    payment_refund: 75
+    compliance_reporting: 70
+    customer_retention: 65
+    staff_operations: 60
+
+    # Cost pressure is real and measurable, but the lever is supplier
+    # negotiation and pricing strategy — not something software alone fixes.
+    # Scored low deliberately: §28 exists to stop exactly this kind of
+    # high-pain/low-fit problem climbing the rankings.
+    price_cost_pressure: 30
+
+# ---------------------------------------------------------------------------
+# Recommendation state machine (§35). Deterministic rules, evaluated in order.
+# §35 is emphatic: "LLM can explain the recommendation. LLM should not decide
+# the status itself."
+# ---------------------------------------------------------------------------
+recommendation:
+  ignore_below_commercial_score: 40
+  watch_below_confidence: 30
+  investigate_min_opportunity_score: 60
+  validate_min_problem_confirmed: 3
+  productize_min_paid_customers: 2
+
+# Which Google Trends keyword group corroborates which topic — §26's
+# search_interest dimension. The two taxonomies are deliberately separate
+# (keyword clusters are how people SEARCH, topics are how problems are
+# CATEGORISED) so the link between them is declared here rather than assumed
+# from a name collision.
+#
+# A topic absent from this map scores 0 for search interest and records a note
+# saying so. §16's warning applies: an absent trend series means "not enough
+# search volume to measure", never "nobody has this problem" — which is exactly
+# why search_interest carries the smallest weight in §26.
+search_interest_topic_map:
+  billing_invoice: sme_finance
+  software_integration: sme_finance
+  inventory_stock: inventory
+  booking_reservation: restaurant
+  price_cost_pressure: cost_pressure
+
+# How many days of signals a scoring run considers, and the immediately
+# preceding window it compares against for growth.
+window:
+  days: 30

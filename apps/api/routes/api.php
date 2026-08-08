@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\OpportunityController;
 use App\Http\Controllers\Api\TrendController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,10 @@ Route::prefix('v1')->group(function () {
             'timestamp' => now()->toIso8601String(),
         ], $healthy ? 200 : 503);
     });
+
+    // Ranked opportunities (PROJECT_SPEC.md §36).
+    Route::get('/opportunities', [OpportunityController::class, 'index']);
+    Route::get('/opportunities/{id}', [OpportunityController::class, 'show'])->whereNumber('id');
 
     // Trend keyword monitoring (PROJECT_SPEC.md §15B/§16). Not in §36's
     // endpoint list, which predates the trend tables; /trends is the natural

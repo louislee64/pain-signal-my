@@ -83,6 +83,15 @@ jobs:
     env:
       INTELLIGENCE_DATABASE_URL: postgresql+psycopg://pain_radar:pain_radar@localhost:5432/pain_radar
       INTELLIGENCE_REDIS_URL: redis://localhost:6379/0
+      # The containers mount config/ at /config and the package at /app; a CI
+      # checkout has neither, so point the same env vars docker-compose sets at
+      # the workspace paths instead of teaching the code about two layouts.
+      SOURCES_REGISTRY_PATH: ${{ github.workspace }}/config/sources.yaml
+      TOPICS_REGISTRY_PATH: ${{ github.workspace }}/config/topics.yaml
+      SIGNAL_RULES_PATH: ${{ github.workspace }}/config/signal_rules.yaml
+      SCORING_CONFIG_PATH: ${{ github.workspace }}/config/scoring.yaml
+      LLM_CONFIG_PATH: ${{ github.workspace }}/config/llm.yaml
+      EVAL_CASES_PATH: ${{ github.workspace }}/apps/intelligence/evaluation/cases.yaml
     steps:
       - uses: actions/checkout@v4
 

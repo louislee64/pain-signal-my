@@ -1,0 +1,52 @@
+# LLM extraction configuration (PROJECT_SPEC.md §24, §25, §44).
+#
+# This is the only file that decides whether the project spends money on model
+# calls. Everything here defaults to the cautious setting; turning extraction on
+# is a deliberate edit, not a side effect of running a pipeline.
+#
+# Mounted read-only at /config/llm.yaml in the api and intelligence containers.
+
+# Master switch. While false, `intelligence llm extract` refuses to run against
+# a paid provider and says so. Fixture/replay runs are unaffected — they cost
+# nothing and are what CI uses.
+enabled: false
+
+# Which adapter to use. Registered names: fixture, anthropic.
+#   fixture   — replays recorded extractions. Free, deterministic, no API key.
+#   anthropic — real API calls. Needs ANTHROPIC_API_KEY and the optional extra.
+provider: fixture
+
+provider_config:
+  # fixture provider
+  recordings_path: /app/evaluation/recordings/extract_problem_v1.json
+
+  # anthropic provider (ignored unless provider: anthropic)
+  # Model choice is a cost/quality decision and belongs to the operator, not to
+  # a default buried in the adapter. See docs/llm-providers.md for the rates
+  # each of these bills at.
+  model: claude-opus-5
+  # Extraction is short and schema-bounded; "low" is the documented lever for
+  # spend on a task that does not need deep reasoning.
+  effort: low
+
+# §44: hard spend ceilings, checked against the `ai_usage` ledger BEFORE each
+# call. Reaching either one aborts the run with a clear message rather than
+# quietly continuing. Set to null to disable a ceiling — not recommended.
+budget:
+  daily_usd: 2.00
+  monthly_usd: 30.00
+
+# Upper bound on documents processed in a single `llm extract` run. A second
+# brake independent of the budget: it caps blast radius when a config change or
+# a bad backfill would otherwise queue thousands of documents.
+max_documents_per_run: 50
+
+# Documents below this cleaned-text length are skipped without a call. Very
+# short text cannot support a grounded extraction, and paying to be told
+# "problem_present: false" is pure waste.
+min_text_length: 80
+
+# Extractions below this confidence are stored but flagged low-confidence, and
+# the scoring engine's evidence dimensions ignore them. §24: the LLM reports
+# its own confidence; the system decides what to trust.
+min_confidence: 0.5

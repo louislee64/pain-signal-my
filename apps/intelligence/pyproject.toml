@@ -24,6 +24,13 @@ dev = [
 bigquery = [
     "google-cloud-bigquery>=3.25,<4",
 ]
+# Anthropic LLM extraction (PROJECT_SPEC.md §24). Optional for the same reason
+# as bigquery: unusable without an API key, and every code path that needs it
+# already refuses to run with an actionable message. The fixture provider covers
+# the tests and CI at zero cost. See docs/llm-providers.md.
+anthropic = [
+    "anthropic>=0.75,<1",
+]
 
 [project.scripts]
 intelligence = "intelligence.cli:main"

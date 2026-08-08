@@ -4,7 +4,12 @@ from datetime import date, datetime
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.engine import Connection
 
-from intelligence.db import document_topics_table, normalized_documents_table, raw_documents_table
+from intelligence.db import (
+    ai_usage_table,
+    document_topics_table,
+    normalized_documents_table,
+    raw_documents_table,
+)
 
 
 @dataclass(frozen=True)
@@ -22,6 +27,19 @@ class RawDocumentRow:
 @dataclass(frozen=True)
 class ClassifiableDocument:
     id: int
+    cleaned_text: str
+    state: str | None
+    signal_date: date
+
+
+@dataclass(frozen=True)
+class ExtractableDocument:
+    """A document eligible for LLM extraction. Carries `raw_document_id` on top
+    of ClassifiableDocument's fields because that is the FK `ai_usage` records
+    spend against."""
+
+    id: int
+    raw_document_id: str
     cleaned_text: str
     state: str | None
     signal_date: date
@@ -118,6 +136,68 @@ def get_unclassified_documents(
     return [
         ClassifiableDocument(
             id=row.id,
+            cleaned_text=row.cleaned_text,
+            state=row.state,
+            signal_date=row.signal_date.date(),
+        )
+        for row in rows
+    ]
+
+
+def get_documents_for_llm_extraction(
+    conn: Connection,
+    prompt_version: str,
+    limit: int = 50,
+    source_id: int | None = None,
+    min_text_length: int = 0,
+) -> list[ExtractableDocument]:
+    """Documents not yet sent to the LLM under this prompt version (§24).
+
+    "Already processed" is defined by the `ai_usage` ledger rather than by
+    whether a signal came out, because most documents legitimately produce
+    nothing — they mention no problem. Keying on produced-signals (the way the
+    free rule-based path in process.py does) would re-send every such document
+    on every run and pay for the same "problem_present: false" forever.
+
+    Failed calls are deliberately NOT counted as processed: a transient API
+    error should be retried, and its ai_usage row exists to record the spend,
+    not to blacklist the document.
+    """
+
+    already_processed = select(ai_usage_table.c.document_id).where(
+        ai_usage_table.c.prompt_version == prompt_version,
+        ai_usage_table.c.succeeded.is_(True),
+        ai_usage_table.c.document_id.isnot(None),
+    )
+
+    signal_date = func.coalesce(raw_documents_table.c.published_at, raw_documents_table.c.collected_at)
+
+    query = (
+        select(
+            normalized_documents_table.c.id,
+            normalized_documents_table.c.raw_document_id,
+            normalized_documents_table.c.cleaned_text,
+            normalized_documents_table.c.state,
+            signal_date.label("signal_date"),
+        )
+        .select_from(normalized_documents_table)
+        .join(raw_documents_table, raw_documents_table.c.id == normalized_documents_table.c.raw_document_id)
+        .where(normalized_documents_table.c.cleaned_text.isnot(None))
+        .where(func.length(normalized_documents_table.c.cleaned_text) >= min_text_length)
+        # Never spend on a document already known to duplicate another (§21).
+        .where(normalized_documents_table.c.duplicate_of_normalized_document_id.is_(None))
+        .where(raw_documents_table.c.id.notin_(already_processed))
+    )
+
+    if source_id is not None:
+        query = query.where(raw_documents_table.c.source_id == source_id)
+
+    rows = conn.execute(query.limit(limit)).all()
+
+    return [
+        ExtractableDocument(
+            id=row.id,
+            raw_document_id=row.raw_document_id,
             cleaned_text=row.cleaned_text,
             state=row.state,
             signal_date=row.signal_date.date(),

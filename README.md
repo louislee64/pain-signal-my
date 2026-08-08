@@ -2,9 +2,9 @@
 
 Problem intelligence, opportunity discovery, and commercial-validation platform for Malaysian SME operational friction.
 
-See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, and [`docs/data-model.md`](./docs/data-model.md) for the database schema.
+See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, and [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation.
 
-**Current status:** Milestone 3 — Trends. Adds Google Trends keyword monitoring: a config-driven keyword registry, pluggable trend providers, derived rolling/growth/z-score metrics, a trends API and a `/trends` dashboard page. No LLM extraction or opportunity scoring yet.
+**Current status:** Milestone 4 — Intelligence Layer. Adds the deterministic opportunity scoring engine (pain / commercial / opportunity / confidence, every weight in `config/scoring.yaml`, every number explainable via `score_components`) and pluggable LLM problem extraction with per-call cost tracking, hard budget ceilings and a fixture-based evaluation suite. **LLM extraction is off by default** — nothing spends money until `config/llm.yaml` says so.
 
 ## Stack
 
@@ -97,9 +97,9 @@ docker compose exec intelligence python -m intelligence.cli aggregate
 ```
 
 Every stage is idempotent and re-runnable; `normalize`/`classify` accept `--source <slug>` to
-scope a run to one source. Classification is rule-based keyword matching against
-`config/topics.yaml` (no LLM calls yet — that's Milestone 4). See
-[`docs/data-model.md`](./docs/data-model.md) for what each stage writes and why.
+scope a run to one source. `classify` is rule-based keyword matching against
+`config/topics.yaml` — free, deterministic, and unaffected by whether LLM extraction is
+enabled. See [`docs/data-model.md`](./docs/data-model.md) for what each stage writes and why.
 
 ## Search trends
 
@@ -129,6 +129,48 @@ comparable within one `collection_batch` — see
 [`docs/trends-data-sources.md`](./docs/trends-data-sources.md), which also covers the
 BigQuery discovery provider and what to do when official Trends API access is granted.
 
+## Opportunity scoring
+
+```bash
+docker compose exec intelligence python -m intelligence.cli score
+```
+
+Ranks every topic on pain, commercial attractiveness, blended opportunity and confidence.
+Confidence is a *separate* score, not folded into opportunity: "looks attractive, evidence
+is still thin" is more useful than one number pretending to certainty.
+
+```bash
+curl http://localhost:8000/api/v1/opportunities
+curl http://localhost:8000/api/v1/opportunities/1   # full score_components breakdown
+```
+
+Every weight lives in [`config/scoring.yaml`](./config/scoring.yaml) and every score stores
+its own arithmetic — each dimension's raw input, normalized value, weight and contribution.
+See [`docs/scoring-model.md`](./docs/scoring-model.md).
+
+## LLM extraction (optional, costs money)
+
+Off by default. `config/llm.yaml` is the only thing that turns it on.
+
+```bash
+# What would a run do, and to how many documents? Calls nothing.
+docker compose exec intelligence python -m intelligence.cli llm extract --dry-run
+
+# Spend against the configured daily/monthly ceilings
+docker compose exec intelligence python -m intelligence.cli llm usage
+
+# The §70 evaluation cases, replayed from recordings — free and deterministic
+docker compose exec intelligence python -m intelligence.cli llm evaluate --provider fixture
+```
+
+The LLM does bounded extraction only — read one document, report the problem it describes.
+It is never asked whether something is a good business opportunity; that judgement belongs to
+the scoring engine, where it is explainable and testable. Budget ceilings are checked *before*
+each call, and every call is recorded in `ai_usage` whether it succeeded or not.
+
+See [`docs/llm-providers.md`](./docs/llm-providers.md) for providers, costs, guards and the
+evaluation suite.
+
 ## Running tests
 
 ```bash
@@ -146,4 +188,4 @@ docker compose exec intelligence pytest
 
 - `apps/*/.env.example` documents required environment variables per service; `.env` files are gitignored.
 - Application source directories are bind-mounted into containers for hot-reload during development; `vendor/` and `node_modules/` are kept in named Docker volumes so host and container dependency installs never collide.
-- No LLM extraction or opportunity scoring exists yet — see `PROJECT_SPEC.md` §55 for the full milestone roadmap.
+- LLM extraction is opt-in and disabled by default; the test suites and CI never make a paid API call. See `PROJECT_SPEC.md` §55 for the full milestone roadmap.

@@ -112,6 +112,39 @@ than a configured absolute URL, because server-side rendering runs inside the co
 (`http://api:8000`) while the browser uses a published host port — one same-origin path means
 neither side has to know which it is.
 
+## Intelligence layer (Milestone 4)
+
+Two subsystems, deliberately kept apart.
+
+**Scoring** (`src/intelligence/scoring/`) is deterministic and free. `measurements.py`
+gathers per-topic facts from `problem_signals` joined back through
+`normalized_documents` to `raw_documents` — the join exists so `distinct_sources`
+counts *sources* rather than documents (§31), which is what makes fifty posts on one
+forum stop looking like consensus. `model.py` holds pure functions with no database
+or config access; `config.py` loads every weight from `config/scoring.yaml` and
+**raises rather than defaulting** when a key is missing, because a silent default is a
+hard-coded weight wearing a disguise. `engine.py` persists, and never writes
+`status`, `title`, or human-authored narrative on a rescore (§52).
+
+**LLM extraction** (`src/intelligence/llm/`) follows Milestone 1's collector and
+Milestone 3's trend-provider pattern: an ABC with `check_available()` that raises an
+actionable error, a registry, and adapters that are the only files importing a vendor
+SDK. Two providers ship — `anthropic` (real, optional extra, needs a key) and
+`fixture` (replays recorded answers, free, what CI uses).
+
+The prompt lives in `llm/base.py`, not in the adapters. A prompt is part of the
+extraction contract rather than a vendor detail; adapters whose prompts drifted apart
+would make the §70 evaluation results incomparable between providers.
+
+This is the first code path in the project that spends money per document, which is
+why `config/llm.yaml` defaults `enabled: false`, the budget is checked before each
+call rather than after the run, and dedup keys on the `ai_usage` ledger instead of on
+produced signals. `docs/llm-providers.md` covers each guard and why it exists.
+
+LLM and rule-based extraction coexist rather than compete: they write
+`problem_signals` under different `classification_method` values, so running one never
+destroys the other's evidence, and the scoring engine reads both.
+
 ## Why this shape
 
 - Three independently deployable apps sharing two datastores, per `PROJECT_SPEC.md` §8/§9 — no message broker or orchestrator introduced yet (`PROJECT_SPEC.md` §54 explicitly excludes Kafka/Kubernetes for V1).
@@ -135,6 +168,8 @@ one key (as done for `SOURCES_REGISTRY_PATH`), not via `env_file:`.
 
 ## Not yet implemented
 
-`official_metrics` (§20), the scoring formulas
-in §26-29 and the `opportunities` table that depends on them (Milestone 4), and the commercial
-CRM tables in §21 (Milestone 6) onward. See `PROJECT_SPEC.md` §55 for the milestone sequence.
+`official_metrics` (§20), the commercial CRM tables in §21 (Milestone 6), and the weekly
+report in §39 (Milestone 7). `LLMProvider.classify_problem()` and `generate_summary()` are
+declared but raise: the rule-based classifier already assigns topics deterministically and for
+free, and no milestone needs summaries yet — better an unimplemented method than a plausible
+stub. See `PROJECT_SPEC.md` §55 for the milestone sequence.

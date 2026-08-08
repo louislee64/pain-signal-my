@@ -1,9 +1,9 @@
-# Data Model — Milestone 3
+# Data Model — Milestone 4
 
 Status: `sources`, `ingestion_runs`, `raw_documents` (Milestone 1); `normalized_documents`,
 `topics`, `document_topics`, `problem_signals`, `topic_daily_metrics` (Milestone 2);
-`keywords`, `trend_metrics` (Milestone 3) — all per PROJECT_SPEC.md §20. `official_metrics`,
-the commercial CRM tables (§21) and `opportunities` land later.
+`keywords`, `trend_metrics` (Milestone 3); `opportunities`, `ai_usage` (Milestone 4) — all
+per PROJECT_SPEC.md §20. `official_metrics` and the commercial CRM tables (§21) land later.
 
 ## Schema ownership
 
@@ -231,3 +231,75 @@ Three decisions worth stating, because each has a plausible wrong alternative:
 spiky day cannot dominate it. Note that on a *weekly* series `rolling_7d` necessarily equals
 that week's raw value (only one observation falls in a 7-day window) — which is why the
 dashboard chart plots `rolling_30d` as its smoothing line.
+
+## opportunities
+
+One row per topic (unique on `topic_id`), rewritten by
+`apps/intelligence/src/intelligence/scoring/engine.py`. Holds the four scores
+(§26, §27, §29, §30), a `recommendation` from §35's state machine, and —
+the column that justifies the table existing at all — `score_components`.
+
+`score_components` is JSONB storing, for every dimension of every score, its raw
+input, its normalized 0–100 value, its weight, and its contribution. Normalization
+makes the raw inputs (counts, percentages, dates) unrecoverable from the final
+number, so without this a score is a claim nobody can check. Any adjustment the
+engine applied is recorded as a note rather than left to be inferred — "capped at
+79: not commercially validated" is stored text.
+
+`scoring_config_version` records which set of weights produced the row, so scores
+computed under different hypotheses are never silently compared. §57 expects
+those weights to move.
+
+Raw `date`/`Decimal` values are coerced to JSON-safe types before storage — the
+`data_recency` dimension's raw input is a date, which is not JSONB-serializable
+and failed loudly the first time it was written.
+
+**Rescoring never touches `status`, `title`, or human-authored narrative fields**
+(§52). The engine owns the numbers; a person owns the judgement. An engine that
+reset someone's "we decided to ignore this" on every cron run would teach people
+to stop recording decisions in the system.
+
+## ai_usage
+
+Every LLM call, successful or not, written before its result is used (§44).
+Failed calls still consumed tokens, and omitting them would understate real spend
+exactly when something is going wrong.
+
+`estimated_cost` is `decimal(12,6)`. One extraction costs roughly $0.015; at 2dp a
+thousand of them would round to either nothing or double. The name is honest —
+these are published per-token rates, not an invoice.
+
+`document_id` is the **`raw_documents`** ULID, not `normalized_documents.id`, and
+it does double duty. Besides answering "what did this document cost", it is the
+dedup key for extraction: a document is considered processed when a *successful*
+row exists for it under the current `prompt_version`. Failed rows are excluded, so
+a transient API error retries rather than blacklisting the document. See
+`docs/llm-providers.md` for why dedup keys on the ledger instead of on produced
+signals.
+
+`prompt_version` and `processing_version` are stored per row (§70) so a shift in
+extraction quality can be traced to the change that caused it.
+
+## problem_signals from LLM extraction
+
+LLM extraction writes `problem_signals` under `classification_method =
+"llm_extract_problem_v1"`, alongside — never replacing — the rule-based
+`rule_based_keyword_v1` rows. The unique constraint on `(document_id, topic_id,
+classification_method)` is what makes that coexistence work, and it is why the
+column was added in Milestone 2 before anything needed it.
+
+The two methods are comparable by design: `frequency_hint` and `payer_type` use
+the same vocabularies in both paths, because `ProblemExtraction`'s enums were
+written against `config/signal_rules.yaml`'s values.
+
+`evidence_json` on an LLM row carries the extraction's own account of itself —
+affected role, one-line summary, suggested solution category, the model's
+confidence — plus the provider, model and prompt version that produced it.
+
+Two extractions are recorded but deliberately not trusted as evidence:
+`problem_present: false` writes nothing, and an extraction below
+`min_confidence` writes nothing while still being paid for and logged. A
+low-confidence extraction that became a row would be indistinguishable from a
+confident one. An invented topic slug is dropped rather than mapped to something
+nearby — a wrong topic silently inflates that topic's score, while a missing one
+only loses a signal.
