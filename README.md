@@ -2,9 +2,9 @@
 
 Problem intelligence, opportunity discovery, and commercial-validation platform for Malaysian SME operational friction.
 
-See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API, and [`docs/commercial-validation.md`](./docs/commercial-validation.md) for the funnel, the gates and the personal-data posture.
+See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API, [`docs/commercial-validation.md`](./docs/commercial-validation.md) for the funnel, the gates and the personal-data posture, and [`docs/reporting.md`](./docs/reporting.md) for the weekly report, alerting and the schedule.
 
-**Current status:** Milestone 6 — Commercial Validation. A problem can now move from internet signal to paid-pilot tracking: §7's five gates, §21's CRM tables (interviews, commercial evidence, experiments), and §3's funnel with human-approved promotion. Recording a real payment is what finally lifts §29's 79-point cap. LLM extraction remains off by default.
+**Current status:** Milestone 7 — Reporting. Adds §39's weekly opportunity report (generated from stored data, hash-verified reproducible), §40's alerting with per-condition deduplication, notification channels (log / Discord / email, off by default), §38's schedule, and conditional fetching so scheduled ingestion stops re-downloading unchanged datasets. LLM extraction remains off by default.
 
 ## Stack
 
@@ -232,6 +232,47 @@ that was pinned under 79 can exceed it. On the demo data: 55.82 → 75.49, with
 name — §21 and §7 Gate 2, with a test asserting the schema never grows one.
 `company_ref` is a pseudonymous label (`retailer-a`) whose only job is to let
 Gate 3 count independent businesses without naming them.
+
+## Reports and alerts
+
+```bash
+# §39's weekly report, built from stored data
+docker compose exec api php artisan reports:generate --week-ending=2026-08-08 --verify
+#   hash: d91f2f0e…
+#   reproducible: yes — rebuilding produced an identical hash
+
+# §40's alert conditions, deduplicated so a standing fact fires once
+docker compose exec api php artisan alerts:check --notify
+
+# which channels could actually deliver right now
+docker compose exec api php artisan notifications:status
+```
+
+Or read them at `/reports` in the dashboard, which has a button to check
+reproducibility on any stored report.
+
+**Reproducible means checkable, not asserted.** Nothing in the builder reads the
+clock — every query is bounded by the reporting window — nothing is written by an
+LLM (§41), and every sort has a tiebreak so the hash cannot flap on identical
+data. `GET /api/v1/reports/{id}/verify` rebuilds the period and compares.
+
+**Alerts fire once.** §40's conditions are standing facts, not events, so each
+carries a `dedupe_key` unique in the database. Reaching PRODUCTIZE alerts again;
+staying at SELL_PILOT does not.
+
+**Notifications default to `log`.** Nothing leaves the machine until
+`NOTIFICATION_CHANNELS` says so.
+
+## Scheduling
+
+```bash
+docker compose exec api php artisan schedule:list
+docker compose exec api php artisan schedule:work    # nothing runs it by default
+```
+
+§38's schedule: ingest → normalize → classify → trends → aggregate → score daily,
+alerts after scoring, report weekly on Monday. LLM extraction is deliberately
+absent — it is the one stage that spends money per document.
 
 ## Running tests
 

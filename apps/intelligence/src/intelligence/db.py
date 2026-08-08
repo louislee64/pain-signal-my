@@ -42,6 +42,13 @@ sources_table = Table(
     Column("enabled", Boolean, nullable=False),
     Column("last_synced_at", DateTime(timezone=True), nullable=True),
     Column("last_dataset_updated_at", DateTime(timezone=True), nullable=True),
+    # §38's conditional-fetch state. `last_successful_sync` is distinct from
+    # `last_synced_at`: the latter records that we talked to the source at all
+    # (including a 304 or a failure), this records that we got data.
+    Column("etag", String, nullable=True),
+    Column("last_modified", String, nullable=True),
+    Column("dataset_version", String, nullable=True),
+    Column("last_successful_sync", DateTime(timezone=True), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )

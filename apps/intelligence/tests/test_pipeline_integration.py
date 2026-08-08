@@ -28,7 +28,7 @@ TEST_TOPIC_SLUGS = ["accounting_sync", "invoice_delivery", "reconciliation", "st
 
 
 class FixtureCollector(Collector):
-    def collect(self, since):
+    def collect(self, since, fetch_state=None):
         for fixture in FIXTURES:
             yield CollectedDocument(
                 external_id=fixture["id"],
@@ -178,7 +178,7 @@ def test_pipeline_is_idempotent_on_rerun(engine):
 
 def test_duplicate_content_is_flagged_not_duplicated(engine):
     class DuplicateCollector(Collector):
-        def collect(self, since):
+        def collect(self, since, fetch_state=None):
             yield CollectedDocument(external_id="a", payload={"body": "same text"}, body="same text")
             yield CollectedDocument(external_id="b", payload={"body": "same text"}, body="same text")
 

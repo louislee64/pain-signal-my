@@ -1,10 +1,11 @@
-# Data Model — Milestone 6
+# Data Model — Milestone 7
 
 Status: `sources`, `ingestion_runs`, `raw_documents` (Milestone 1); `normalized_documents`,
 `topics`, `document_topics`, `problem_signals`, `topic_daily_metrics` (Milestone 2);
 `keywords`, `trend_metrics` (Milestone 3); `opportunities`, `ai_usage` (Milestone 4);
 `customer_interviews`, `commercial_evidence`, `experiments`,
-`opportunity_stage_transitions` (Milestone 6) — per PROJECT_SPEC.md §20/§21.
+`opportunity_stage_transitions` (Milestone 6); `reports`, `alerts` (Milestone 7) —
+per PROJECT_SPEC.md §20/§21.
 Milestone 5 added no tables: the dashboard reads what the pipeline already stores,
 which was the check that Milestone 4 stored enough. `official_metrics` lands later.
 
@@ -372,3 +373,47 @@ The snapshot is denormalised deliberately. The underlying rows keep changing, an
 the question this table answers is "what did we know when we decided" — which a
 live join can never reconstruct. §57 needs exactly that to recalibrate the scoring
 weights against real commercial outcomes.
+
+## reports
+
+§39's weekly report, stored three ways because each answers a different question:
+`sections` (JSONB) for consumers that want data rather than prose, `markdown`
+frozen at generation time, and `inputs` recording what it was built from.
+
+The frozen Markdown matters: a report that re-rendered from live data on every
+view would change under its reader, making it useless as a record of what was
+known when a decision was made.
+
+`content_hash` is SHA-256 over the sections plus inputs — not the Markdown, since
+the renderer is pure and hashing prose would make a wording change look like a
+data change. `generated_at` is excluded, or every report would be trivially unique
+and the reproducibility check a tautology.
+
+Unique on `(report_type, period_start, period_end)`: regenerating a period
+replaces it. §55 asks for report *history*, which is a history of periods; nine
+near-identical Tuesday reports would be a log.
+
+## alerts
+
+§40's alerts and the record of which have been sent.
+
+`dedupe_key` is unique, and that uniqueness is the design. §40's conditions are
+standing facts ("opportunity reaches SELL_PILOT"), not events, so a scheduled
+evaluation would re-fire everything still true. The key encodes the condition plus
+whatever makes an instance distinct — including the recommendation, so PRODUCTIZE
+is not suppressed by an earlier SELL_PILOT.
+
+`detected_at` and `delivered_at` are separate columns because an alert detected
+but not delivered is a different state from one never detected, and only the first
+should be retried.
+
+## sources: conditional-fetch columns
+
+`etag`, `last_modified`, `dataset_version`, `last_successful_sync` (§38).
+
+`last_successful_sync` is deliberately distinct from the existing
+`last_synced_at`: the latter records that we talked to the source at all,
+including a 304 or a failure. Conflating them would make a source that has been
+erroring for a week look freshly synced — and `since` resumes from
+`last_successful_sync`, so a failed run does not cause the next one to skip
+whatever was published in between.

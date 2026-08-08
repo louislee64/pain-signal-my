@@ -203,6 +203,38 @@ computing the same counts, because the gate check, the suggestion, the API respo
 and the transition snapshot must all see identical numbers — otherwise the UI
 offers a promotion the API then refuses.
 
+## Reporting and scheduling (Milestone 7)
+
+`ReportBuilder` → `ReportRenderer` → `ReportService`, split by what changes for
+different reasons: what the findings *are*, how they *read*, and how they are
+*stored and hashed*. The renderer is pure — no clock, no database — which is what
+lets the content hash be taken over the structured sections and still describe the
+rendered document.
+
+Reports are stored three ways because each answers a different question:
+`sections` for consumers, `markdown` frozen so a report cannot change under its
+reader, and `inputs` (config versions, row counts) so "reproducible" is falsifiable
+rather than a claim.
+
+`AlertDetector` writes rows; the command sends them. Separating detection from
+delivery means a delivery outage leaves alerts pending rather than losing them,
+and a `dedupe_key` unique in the database is what stops §40's standing conditions
+re-firing nightly.
+
+Notification channels follow the same shape as collectors, trend providers and LLM
+providers: interface, registry, `checkAvailable()` with an actionable message. The
+default is `log` only — nothing leaves the machine until an operator says so.
+
+The scheduler shells out to the Python CLI rather than reimplementing the pipeline
+as Laravel jobs. §37 lists both kinds of worker; the split stays where it already
+is. Nothing starts a scheduler in the compose stack, so the schedule is inert
+until someone runs `schedule:work` or wires a cron.
+
+`Collector.collect()` gained a `fetch_state` argument and a `fetch_state()`
+companion for §38's conditional fetching. `SourceUnchanged` is an exception rather
+than an empty iterator because "unchanged" and "empty" are different outcomes, and
+`last_successful_sync` is separate from `last_synced_at` for the same reason.
+
 ## Why this shape
 
 - Three independently deployable apps sharing two datastores, per `PROJECT_SPEC.md` §8/§9 — no message broker or orchestrator introduced yet (`PROJECT_SPEC.md` §54 explicitly excludes Kafka/Kubernetes for V1).
@@ -226,7 +258,8 @@ one key (as done for `SOURCES_REGISTRY_PATH`), not via `env_file:`.
 
 ## Not yet implemented
 
-`official_metrics` (§20) and the weekly report in §39 (Milestone 7). `LLMProvider.classify_problem()` and `generate_summary()` are
+`official_metrics` (§20). Milestone 8 is manual market validation — the developer
+testing top opportunities against real businesses — which needs no new code. `LLMProvider.classify_problem()` and `generate_summary()` are
 declared but raise: the rule-based classifier already assigns topics deterministically and for
 free, and no milestone needs summaries yet — better an unimplemented method than a plausible
 stub. See `PROJECT_SPEC.md` §55 for the milestone sequence.

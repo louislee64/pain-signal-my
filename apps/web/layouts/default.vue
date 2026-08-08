@@ -10,6 +10,7 @@ const links = [
   { to: '/', label: 'Overview' },
   { to: '/topics', label: 'Topics' },
   { to: '/trends', label: 'Search trends' },
+  { to: '/reports', label: 'Reports' },
   { to: '/sources', label: 'Sources' },
 ]
 

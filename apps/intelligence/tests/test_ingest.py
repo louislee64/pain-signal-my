@@ -17,7 +17,7 @@ class FakeCollector(Collector):
         super().__init__(config)
         self._documents = documents
 
-    def collect(self, since):
+    def collect(self, since, fetch_state=None):
         return iter(self._documents)
 
 

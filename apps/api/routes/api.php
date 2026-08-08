@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\CommercialValidationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\OpportunityController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SourceController;
 use App\Http\Controllers\Api\TopicController;
 use App\Http\Controllers\Api\TrendController;
@@ -59,6 +60,14 @@ Route::prefix('v1')->group(function () {
     // Topic pages. Keyed by slug — the stable identifier in config/topics.yaml.
     Route::get('/topics', [TopicController::class, 'index']);
     Route::get('/topics/{slug}', [TopicController::class, 'show']);
+
+    // Reports and alerts (PROJECT_SPEC.md §36, §39, §40).
+    Route::get('/reports', [ReportController::class, 'index']);
+    Route::get('/reports/{id}', [ReportController::class, 'show'])->whereNumber('id');
+    Route::post('/reports/generate', [ReportController::class, 'generate']);
+    // Makes Milestone 7's acceptance criterion checkable rather than asserted.
+    Route::get('/reports/{id}/verify', [ReportController::class, 'verify'])->whereNumber('id');
+    Route::get('/alerts', [ReportController::class, 'alerts']);
 
     // Source health and ingestion history (PROJECT_SPEC.md §36).
     // `POST /sources/{id}/run` is in §36's list but deliberately absent: it
