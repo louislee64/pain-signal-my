@@ -1,0 +1,128 @@
+# Problem taxonomy (PROJECT_SPEC.md §4). Config-driven — application code
+# must never hard-code topic names. Sync into the `topics` table with:
+#   php artisan topics:sync
+#
+# Each topic may optionally list `keywords` used by the rule-based classifier
+# (apps/intelligence/src/intelligence/classify.py) to match cleaned document
+# text. Keywords are informal, lowercase, and mix English / Bahasa Malaysia /
+# Chinese since that's what the underlying text will contain (PROJECT_SPEC.md
+# §43). A document may match more than one topic.
+
+topics:
+  - slug: billing_invoice
+    name: Billing & Invoicing
+    description: Problems generating, sending, reconciling, or matching invoices and payments.
+    subtopics:
+      - slug: einvoice
+        name: e-Invoice
+        keywords: [e-invoice, einvoice, e-invois, lhdn einvois, myinvois]
+      - slug: reconciliation
+        name: Reconciliation
+        keywords: [reconcile, reconciliation, penyesuaian akaun, 对账, 对帐]
+      - slug: invoice_generation
+        name: Invoice Generation
+        keywords: [generate invoice, invoice generation, jana invois, 开发票]
+      - slug: invoice_delivery
+        name: Invoice Delivery
+        keywords: [send invoice, hantar invois, deliver invoice, 发送发票]
+      - slug: accounting_sync
+        name: Accounting Sync
+        keywords: [accounting software, sync accounting, export to excel, penyata akaun, 同步到会计]
+      - slug: payment_matching
+        name: Payment Matching
+        keywords: [payment matching, match payment, padan bayaran, 付款对账]
+
+  - slug: inventory_stock
+    name: Inventory & Stock
+    description: Problems tracking, transferring, or counting stock across one or more outlets.
+    subtopics:
+      - slug: stock_accuracy
+        name: Stock Accuracy
+        keywords: [stock discrepancy, stock wrong, stok tidak tepat, 库存出错, 库存不准]
+      - slug: stock_transfer
+        name: Stock Transfer
+        keywords: [stock transfer, pindah stok, transfer inventory, 转仓, 调货]
+      - slug: reorder
+        name: Reorder
+        keywords: [reorder, restock, pesan semula, 补货]
+      - slug: purchase_order
+        name: Purchase Order
+        keywords: [purchase order, po number, pesanan belian, 采购单]
+      - slug: stock_count
+        name: Stock Count
+        keywords: [stock count, stocktake, kira stok, 盘点]
+      - slug: multi_branch_inventory
+        name: Multi-branch Inventory
+        keywords: [multi branch inventory, cawangan stok, cross branch stock, 多分店库存]
+
+  - slug: booking_reservation
+    name: Booking & Reservation
+    description: Problems handling table/appointment bookings and reservations.
+    subtopics:
+      - slug: no_show
+        name: No-show
+        keywords: [no show, tak datang, pelanggan tak muncul, 顾客没来]
+      - slug: double_booking
+        name: Double Booking
+        keywords: [double booking, booking clash, tempahan bertindih, 重复预订]
+      - slug: manual_whatsapp_booking
+        name: Manual WhatsApp Booking
+        keywords: [whatsapp booking, tempah melalui whatsapp, booking via whatsapp, whatsapp 预订]
+      - slug: waiting_list
+        name: Waiting List
+        keywords: [waiting list, senarai menunggu, waitlist, 等候名单]
+      - slug: reminder
+        name: Reminder
+        keywords: [booking reminder, peringatan tempahan, reminder sms, 预订提醒]
+
+  - slug: customer_service
+    name: Customer Service
+    description: Problems responding to, tracking, and resolving customer requests and complaints.
+    subtopics:
+      - slug: slow_response
+        name: Slow Response
+        keywords: [slow response, lambat balas, respon lambat, 回复慢]
+      - slug: unanswered_whatsapp
+        name: Unanswered WhatsApp
+        keywords: [unanswered whatsapp, whatsapp tak dibalas, 没有回复whatsapp]
+      - slug: complaint_tracking
+        name: Complaint Tracking
+        keywords: [complaint tracking, aduan pelanggan, track complaint, 投诉记录]
+      - slug: refund_request
+        name: Refund Request
+        keywords: [refund request, mohon bayaran balik, minta refund, 退款申请]
+      - slug: status_updates
+        name: Status Updates
+        keywords: [order status, status pesanan, status update, 订单状态]
+
+  - slug: payment_refund
+    name: Payment & Refund
+    description: Problems collecting payment or processing refunds.
+
+  - slug: compliance_reporting
+    name: Compliance & Reporting
+    description: Problems meeting regulatory/compliance reporting obligations.
+
+  - slug: workflow_manual_process
+    name: Manual Workflow / Process
+    description: Recurring manual work that should be automated.
+
+  - slug: staff_operations
+    name: Staff Operations
+    description: Problems scheduling, training, or managing staff.
+
+  - slug: price_cost_pressure
+    name: Price / Cost Pressure
+    description: Problems caused by rising supplier or input costs.
+
+  - slug: software_integration
+    name: Software Integration
+    description: Problems connecting one system/tool to another (POS, ERP, accounting).
+
+  - slug: data_reporting
+    name: Data & Reporting
+    description: Problems producing business reports or dashboards from raw data.
+
+  - slug: customer_retention
+    name: Customer Retention
+    description: Problems keeping customers coming back.

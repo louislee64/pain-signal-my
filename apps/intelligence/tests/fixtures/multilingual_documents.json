@@ -1,0 +1,30 @@
+[
+  {
+    "id": "en_accounting_sync",
+    "expected_language": "en",
+    "title": "Nightly Excel export",
+    "body": "Every day we struggle with our accounting software - it's very frustrating and wastes so much staff time.",
+    "expected_topics": ["accounting_sync"]
+  },
+  {
+    "id": "ms_invoice_delivery",
+    "expected_language": "ms",
+    "title": "Invois perlu hantar manual",
+    "body": "Kami hantar invois setiap hari secara manual dan sangat kecewa sebab kos tinggi.",
+    "expected_topics": ["invoice_delivery"]
+  },
+  {
+    "id": "zh_reconciliation_stock",
+    "expected_language": "zh",
+    "title": "库存对账问题",
+    "body": "每天对账真的非常糟糕,库存出错,浪费很多人力。",
+    "expected_topics": ["reconciliation", "stock_accuracy"]
+  },
+  {
+    "id": "mixed_stock_reconcile",
+    "expected_language": "mixed",
+    "title": "Inventory reconciliation trouble",
+    "body": "Boss cakap stock wrong lagi, kena reconcile manual entry setiap hari, memang problem besar.",
+    "expected_topics": ["stock_accuracy", "reconciliation"]
+  }
+]

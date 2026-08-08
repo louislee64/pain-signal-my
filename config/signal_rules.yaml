@@ -1,0 +1,116 @@
+# Rule-based problem-signal extraction (PROJECT_SPEC.md §22/§23).
+#
+# This is a deliberate stand-in for Milestone 4's LLM-based extraction
+# (§24) — deterministic, cheap, and testable, so the pipeline can be proven
+# before any LLM cost/latency/hallucination risk is introduced. Per-document
+# severity/urgency/economic_impact scores are the sum of matched keyword
+# groups' `points`, clipped to 0-100 by
+# apps/intelligence/src/intelligence/signals.py. Expect this file to need
+# heavy tuning once real customer-discovery outcomes exist (PROJECT_SPEC.md
+# §57) — it is intentionally separate from config/scoring.yaml, which holds
+# the topic/opportunity-level scoring formula weights instead.
+
+severity_keywords:
+  - points: 30
+    keywords:
+      - very frustrating
+      - angry
+      - terrible
+      - hopeless
+      - keep losing money
+      - kerugian besar
+      - sangat teruk
+      - sangat kecewa
+      - marah
+      - 非常糟糕
+      - 损失惨重
+      - 气愤
+  - points: 15
+    keywords:
+      - problem
+      - issue
+      - error
+      - mistake
+      - broken
+      - masalah
+      - kesilapan
+      - ralat
+      - rosak
+      - 问题
+      - 错误
+      - 麻烦
+
+urgency_keywords:
+  - points: 30
+    frequency_hint: daily
+    keywords:
+      - every day
+      - everyday
+      - daily
+      - setiap hari
+      - tiap-tiap hari
+      - 每天
+      - 天天
+  - points: 20
+    frequency_hint: weekly
+    keywords:
+      - every week
+      - weekly
+      - setiap minggu
+      - 每周
+      - 每星期
+  - points: 10
+    frequency_hint: monthly
+    keywords:
+      - every month
+      - monthly
+      - setiap bulan
+      - 每月
+  - points: 25
+    keywords:
+      - urgent
+      - asap
+      - immediately
+      - segera
+      - secepat mungkin
+      - 紧急
+      - 马上
+      - 尽快
+
+economic_impact_keywords:
+  - points: 25
+    keywords:
+      - lose money
+      - losing money
+      - cost us
+      - expensive
+      - rugi
+      - kos tinggi
+      - mahal
+      - 亏钱
+      - 损失
+      - 成本高
+  - points: 15
+    keywords:
+      - staff time
+      - man hours
+      - manual entry
+      - masa staf
+      - tenaga kerja
+      - kerja manual
+      - 人力
+      - 花时间
+      - 手动
+
+# First matching buyer type wins (PROJECT_SPEC.md §5). Order matters.
+payer_keywords:
+  - payer_type: business_owner
+    keywords: [owner, boss, towkay, tuan punya kedai, pemilik kedai, 老板]
+  - payer_type: operations_manager
+    keywords: [operations manager, pengurus operasi, 运营经理, 营运经理]
+  - payer_type: finance_department
+    keywords: [finance department, accounts department, bahagian kewangan, 财务部]
+  - payer_type: accounting_firm
+    keywords: [accounting firm, firma perakaunan, 会计事务所]
+  - payer_type: erp_pos_provider
+    keywords: [pos provider, erp vendor, pembekal pos, 收银系统供应商]

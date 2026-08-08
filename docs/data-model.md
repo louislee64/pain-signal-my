@@ -1,12 +1,13 @@
-# Data Model — Milestone 1
+# Data Model — Milestone 2
 
-Status: `sources`, `ingestion_runs`, `raw_documents` only (PROJECT_SPEC.md §20). Later
-tables (`normalized_documents`, `topics`, `problem_signals`, etc.) land in Milestone 2+.
+Status: `sources`, `ingestion_runs`, `raw_documents` (Milestone 1) plus `normalized_documents`,
+`topics`, `document_topics`, `problem_signals`, `topic_daily_metrics` (Milestone 2, per
+PROJECT_SPEC.md §20). The commercial CRM tables (§21) and `opportunities` land later.
 
 ## Schema ownership
 
 **Laravel owns the schema.** Migrations in `apps/api/database/migrations` are the single
-source of truth for these three tables. `apps/intelligence/src/intelligence/db.py` declares
+source of truth for every table below. `apps/intelligence/src/intelligence/db.py` declares
 the same tables as SQLAlchemy Core `Table` objects so Python can read/write them, but Python
 never runs migrations or DDL — it only maps to what Laravel already created. This avoids two
 schema definitions drifting out of sync in different languages.
@@ -61,3 +62,99 @@ prove idempotency against. `fuelprice` (data.gov.my dataset id `fuelprice`) is w
 the insert/update/unchanged accounting cleanly. PriceCatcher (and any other data.gov.my
 dataset) becomes a config-only addition once this pattern is trusted — see
 [adding-a-data-source.md](./adding-a-data-source.md).
+
+## normalized_documents
+
+One row per `raw_document` (unique FK). Built by
+`apps/intelligence/src/intelligence/normalize.py`:
+
+- `cleaned_text` = title + body with HTML tags stripped and whitespace collapsed.
+- `language` — `en` / `ms` / `zh` / `mixed` / `unknown`, from
+  `apps/intelligence/src/intelligence/language.py`. This is a hand-rolled heuristic (CJK
+  Unicode-range ratio for `zh`; an explicit Bahasa Malaysia function-word list for `ms`/
+  `mixed`), not a general-purpose language-ID library — `langdetect` and similar do not
+  reliably separate Malay from Indonesian, and a wrong "accurate-looking" answer is worse
+  than an honestly crude, testable one. Classification does not gate on this field: keyword
+  matching runs against the raw text regardless of detected language, so a wrong language tag
+  degrades a display label, not a business decision.
+- `country`/`state`/`city` — `country` is hard-coded `"MY"` (every source so far is
+  Malaysia-only); `state` is passed straight through from `raw_documents.region_raw` with no
+  parsing yet (fuelprice's collector sets that to the literal string `"MY"` since it has no
+  per-state breakdown — a real `state`/city taxonomy is future work).
+- `industry_id` exists (nullable, no FK constraint yet) but nothing populates it — no
+  industries taxonomy exists yet. Deliberately deferred; add `config/industries.yaml` +
+  a real FK when a source actually needs it.
+- `normalized_content_hash` / `duplicate_of_normalized_document_id` — near-duplicate
+  detection **beyond** `raw_documents.content_hash` (which only catches byte-identical
+  re-fetches of the same natural key). This catches the same cleaned text arriving under a
+  *different* natural key — e.g. syndicated copies (§42) — by hashing the lowercased,
+  whitespace-collapsed `cleaned_text` and pointing at the first document with that hash. This
+  is exact-after-cleaning matching only; true fuzzy near-duplicate similarity (§42) is not
+  implemented — everything ingested so far is either structured government data or synthetic
+  test fixtures, neither of which exercises genuine near-duplicate text.
+- Neither `industry_id` nor the dedup FK/hash columns are in PROJECT_SPEC.md §20's literal
+  field list for this table — both are minimal, justified extensions (see the immutability
+  note above for the same kind of call on `raw_documents`).
+
+## topics
+
+The taxonomy from PROJECT_SPEC.md §4, synced from `config/topics.yaml` by
+`php artisan topics:sync` (mirrors `sources:sync`). Self-referencing `parent_id` gives the
+category → subtopic hierarchy. Sync is idempotent and soft-disables (never deletes) topics
+removed from the YAML.
+
+**Keywords are not a database column.** `config/topics.yaml` attaches a `keywords` list to
+subtopics for the rule-based classifier, but `keywords` never syncs into the `topics` table —
+it isn't in §20's field list, nothing displays it, and only
+`apps/intelligence/src/intelligence/taxonomy.py` (loaded straight from the YAML) needs it.
+Only 4 of the 12 top-level categories have subtopics/keywords defined yet — the ones
+PROJECT_SPEC.md §4 actually enumerates (`billing_invoice`, `inventory_stock`,
+`booking_reservation`, `customer_service`). The other 8 exist as enabled top-level rows with
+no keywords, so the rule-based classifier can never match them yet — add keywords when a real
+source needs that category.
+
+## document_topics / problem_signals
+
+`document_id` points at `normalized_documents.id`, not `raw_documents.id` — classification
+runs after normalization (§22's pipeline order). Both tables have a `classification_method`
+column (not in §20's literal list) with a unique constraint on
+`(document_id, topic_id, classification_method)`: re-running rule-based classification
+upserts in place instead of duplicating, and a future LLM-based method (§24, Milestone 4) can
+coexist as a second row per document/topic rather than overwriting the rule-based one.
+
+**Rule-based extraction is a deliberate stand-in for §24's LLM extraction**, not a
+lower-quality version of the same thing — the goal for Milestone 2 is a keyword-driven,
+zero-cost, fully deterministic pipeline that proves out end-to-end before any LLM
+cost/latency/hallucination risk is introduced (§23). Concretely
+(`apps/intelligence/src/intelligence/classify.py` + `signals.py` +
+`config/signal_rules.yaml`):
+
+- A document matches a topic if its cleaned text contains ≥1 of that topic's keywords
+  (case-insensitive substring match — deliberately naive, since CJK text has no word
+  boundaries to tokenize on and multi-word EN/BM phrases need substring matching anyway).
+  `confidence` = `min(100, 50 + 25 × (matches - 1))`.
+- `severity_score` / `urgency_score` / `economic_impact_score` are each the sum of matched
+  keyword groups' `points` in `config/signal_rules.yaml`, clipped to 100. `frequency_hint`
+  and `payer_type` come from the same file's keyword groups (first match wins for
+  `payer_type`).
+- `evidence_json` stores every matched keyword per dimension, plus the topic keywords that
+  triggered the classification — so every score is traceable back to the literal text that
+  produced it (§41: raw evidence must stay traceable).
+
+Expect `config/signal_rules.yaml` to need real tuning once customer-discovery outcomes exist
+(§57) — the point-values are an initial hypothesis, not a calibrated model.
+
+## topic_daily_metrics
+
+Rebuilt by `apps/intelligence/src/intelligence/aggregate.py` from `problem_signals`, grouped
+by `(date, topic_id, region)`. Only `mention_count`, `source_count`, `avg_severity`, and
+`avg_urgency` are populated in Milestone 2 — `trend_score` (needs Google Trends, Milestone 3),
+`official_score`/`pain_score`/`commercial_score`/`opportunity_score` (need the scoring
+formulas, Milestone 4) stay `NULL` until those milestones exist. `region` is `NOT NULL` with
+`''` meaning "no region breakdown" rather than nullable — Postgres unique constraints treat
+`NULL` as distinct per row, which would silently defeat the `(date, topic_id, region)` unique
+constraint for every "no region" row.
+
+Recomputation is a full rebuild over every date with any `problem_signals` row, not an
+incremental "dirty dates" update — simple and correct at today's data volume; revisit if it
+becomes slow.

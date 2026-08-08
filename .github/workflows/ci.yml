@@ -86,9 +86,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The `sources`/`ingestion_runs`/`raw_documents` schema is owned by Laravel
-      # migrations (see docs/data-model.md) — apply it here so the Python
-      # integration tests in tests/test_ingest.py have real tables to hit.
+      # The full schema (sources through topic_daily_metrics) is owned by
+      # Laravel migrations (see docs/data-model.md) — apply it here so the
+      # Python integration tests (test_ingest.py, test_pipeline_integration.py)
+      # have real tables to hit. Those tests create any topic rows they need
+      # if missing, so no `topics:sync` step is required here.
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"

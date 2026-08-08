@@ -42,6 +42,7 @@ services:
       - ./config:/config:ro
     environment:
       SOURCES_REGISTRY_PATH: /config/sources.yaml
+      TOPICS_REGISTRY_PATH: /config/topics.yaml
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,6 +86,8 @@ services:
       - ./config:/config:ro
     environment:
       SOURCES_REGISTRY_PATH: /config/sources.yaml
+      TOPICS_REGISTRY_PATH: /config/topics.yaml
+      SIGNAL_RULES_PATH: /config/signal_rules.yaml
     depends_on:
       postgres:
         condition: service_healthy
