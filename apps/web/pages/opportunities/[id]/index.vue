@@ -78,6 +78,37 @@ const { data, error } = await useFetch<{
 const detail = computed(() => data.value?.data)
 const meta = computed(() => data.value?.meta)
 
+// Fetched separately from the detail payload: this is a working view for someone
+// doing customer discovery, and folding it into the ranked-list response would
+// make every dashboard page load carry it.
+const { data: validation } = await useFetch<{
+  meta: {
+    status: string
+    suggested_status: string
+    stage_order: string[]
+    stage_labels: Record<string, string>
+    evidence: Record<string, number | boolean>
+  }
+}>(`${apiBase}/opportunities/${route.params.id}/validation`)
+
+const capped = computed(() => {
+  const e = validation.value?.meta.evidence
+  if (!e) return true
+  // Mirrors is_commercially_validated() in the Python model: money on its own
+  // clears it, otherwise Gate 3's full bar applies.
+  if (Number(e.paid_pilot_count) >= 1 || Number(e.paying_business_count) >= 1) return false
+  return !(Number(e.independent_confirmations) >= 2 && e.has_strong_commercial_signal === true)
+})
+
+const validationLabel = computed(() => {
+  const e = validation.value?.meta.evidence
+  if (!e) return ''
+  const parts = []
+  if (Number(e.interview_count) > 0) parts.push(`${e.interview_count} interviews`)
+  if (Number(e.evidence_count) > 0) parts.push(`${e.evidence_count} evidence records`)
+  return parts.length ? parts.join(' · ') : 'nothing recorded yet'
+})
+
 const showAllExamples = ref(false)
 const visibleExamples = computed(() => {
   const examples = detail.value?.evidence.examples ?? []
@@ -282,17 +313,59 @@ function methodLabel(method: string): string {
       </div>
 
       <section class="panel">
-        <h2 class="panel__title">Validation</h2>
-        <ul class="deferred">
-          <li v-for="(when, section) in meta?.sections_not_yet_available ?? {}" :key="section">
-            <span class="deferred__name">{{ String(section).replace(/_/g, ' ') }}</span>
-            <span class="deferred__when">{{ when }}</span>
-          </li>
-        </ul>
+        <h2 class="panel__title">
+          Commercial validation
+          <span class="panel__count">
+            {{ validationLabel }}
+          </span>
+        </h2>
+
+        <FunnelProgress
+          v-if="validation"
+          :status="validation.meta.status"
+          :suggested-status="validation.meta.suggested_status"
+          :order="validation.meta.stage_order"
+          :labels="validation.meta.stage_labels"
+        />
+
+        <dl v-if="validation" class="evidence-counts tabular">
+          <div>
+            <dt>Interviews</dt>
+            <dd>{{ validation.meta.evidence.interview_count }}</dd>
+          </div>
+          <div>
+            <dt>Confirmed</dt>
+            <dd>{{ validation.meta.evidence.problem_confirmed_count }}</dd>
+          </div>
+          <div>
+            <dt>Independent businesses</dt>
+            <dd>{{ validation.meta.evidence.independent_confirmations }}</dd>
+          </div>
+          <div>
+            <dt>Paying businesses</dt>
+            <dd>{{ validation.meta.evidence.paying_business_count }}</dd>
+          </div>
+          <div>
+            <dt>Experiments</dt>
+            <dd>{{ validation.meta.evidence.experiment_count }}</dd>
+          </div>
+        </dl>
+
         <p class="footnote">
-          Until these exist, the opportunity score is capped at 79: §29 stops
-          inferred signals outranking actual paying customers.
+          <template v-if="capped">
+            No commercial validation recorded, so the opportunity score is capped
+            at 79 &mdash; §29 stops inferred signals outranking actual paying
+            customers.
+          </template>
+          <template v-else>
+            Commercial validation is recorded, so §29's 79-point cap does not
+            apply to this score.
+          </template>
         </p>
+
+        <NuxtLink :to="`/opportunities/${detail.id}/validation`" class="cta">
+          Record evidence and move the stage &rarr;
+        </NuxtLink>
       </section>
 
       <section class="panel panel--wide">
@@ -498,30 +571,36 @@ h1 {
   font-size: 0.85rem;
 }
 
-.deferred {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.evidence-counts {
   display: grid;
-  gap: 0.3rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.7rem;
+  margin: 0.9rem 0 0;
 }
 
-.deferred li {
-  display: flex;
-  gap: 0.6rem;
-  align-items: baseline;
-  font-size: 0.8rem;
-  flex-wrap: wrap;
-}
-
-.deferred__name {
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.deferred__when {
+.evidence-counts dt {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--text-muted);
-  font-size: 0.75rem;
+}
+
+.evidence-counts dd {
+  margin: 0.1rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.cta {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cta:hover {
+  text-decoration: underline;
 }
 
 .footnote {

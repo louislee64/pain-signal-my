@@ -175,6 +175,34 @@ is the real engine's output rather than a hand-written number that would make a
 broken scorer look fine. Everything is prefixed `demo_`; `demo:purge` removes exactly
 that prefix and nothing else.
 
+## Commercial validation (Milestone 6)
+
+The first write path in the project, and the only one. Three tables (§21) hang off
+`opportunities`; Laravel owns them and Python reads them.
+
+`CommercialStage` (a plain support class, not a model) holds §3's funnel and §7's
+gate checks. It lives in one place because three things ask about stages — the API,
+the dashboard, and the suggestion logic — and a funnel whose order is written down
+in three places is three funnels.
+
+Two columns encode §52. `status` is human-only, written exclusively by
+`PATCH /stage`. `suggested_status` is what the engine computes from the gates and
+rewrites on every evidence change. Neither the scoring pipeline nor an evidence
+write can move `status`, which is the one invariant this milestone is built around.
+
+The evidence counting rules exist **twice** — `Opportunity::evidenceSummary()` in
+PHP and `scoring/commercial.py` in Python — because Laravel decides whether a
+promotion is allowed and Python decides whether §29's cap lifts. That duplication
+is deliberate (neither service should call the other synchronously for this) and
+guarded: a test reads the PHP source and asserts the evidence-type lists match. If
+they drifted, an opportunity could sit at `paid_pilot` while scoring as though
+nobody had ever paid, and nothing else in the system would report it.
+
+`Opportunity::evidenceSummary()` is one method rather than four call sites
+computing the same counts, because the gate check, the suggestion, the API response
+and the transition snapshot must all see identical numbers — otherwise the UI
+offers a promotion the API then refuses.
+
 ## Why this shape
 
 - Three independently deployable apps sharing two datastores, per `PROJECT_SPEC.md` §8/§9 — no message broker or orchestrator introduced yet (`PROJECT_SPEC.md` §54 explicitly excludes Kafka/Kubernetes for V1).
@@ -198,8 +226,7 @@ one key (as done for `SOURCES_REGISTRY_PATH`), not via `env_file:`.
 
 ## Not yet implemented
 
-`official_metrics` (§20), the commercial CRM tables in §21 (Milestone 6), and the weekly
-report in §39 (Milestone 7). `LLMProvider.classify_problem()` and `generate_summary()` are
+`official_metrics` (§20) and the weekly report in §39 (Milestone 7). `LLMProvider.classify_problem()` and `generate_summary()` are
 declared but raise: the rule-based classifier already assigns topics deterministically and for
 free, and no milestone needs summaries yet — better an unimplemented method than a plausible
 stub. See `PROJECT_SPEC.md` §55 for the milestone sequence.

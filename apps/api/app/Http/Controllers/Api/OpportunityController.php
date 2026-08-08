@@ -24,13 +24,12 @@ class OpportunityController extends Controller
     {
         $query = Opportunity::query()->with('topic:id,slug,name');
 
-        // §33's filter list, restricted to the filters that have data behind
-        // them. `industry` is omitted deliberately: `industry_id` exists on the
-        // table but nothing populates it yet, and a control that silently
-        // matches nothing is worse than an absent one — it reads as "no
-        // opportunities in retail" rather than "we don't classify industry".
-        // The same applies to `commercial stage` beyond `status`, whose
-        // supporting CRM tables arrive in Milestone 6 (§21).
+        // §33's filter list. `status` IS §33's "commercial stage" — §3's funnel,
+        // human-owned per §52. `industry` remains omitted deliberately:
+        // `industry_id` exists on the table but nothing populates it, and a
+        // control that silently matches nothing is worse than an absent one — it
+        // reads as "no opportunities in retail" rather than "we don't classify
+        // industry".
         foreach (['status', 'recommendation'] as $filter) {
             if ($request->filled($filter)) {
                 $query->where($filter, $request->string($filter));
@@ -105,8 +104,8 @@ class OpportunityController extends Controller
                 'filters_applied' => $this->appliedFilters($request),
                 'filters_not_yet_available' => [
                     'industry' => 'industry_id is unpopulated — no industry classifier exists yet',
-                    'commercial_stage' => 'pilots and paying customers arrive with the CRM tables in Milestone 6 (§21)',
                 ],
+                'commercial_stage_filter' => 'status',
             ],
         ]);
     }
@@ -148,11 +147,11 @@ class OpportunityController extends Controller
             'meta' => [
                 'scoring_config_version' => $opportunity->scoring_config_version,
                 'scored_at' => $opportunity->scored_at?->toIso8601String(),
-                'sections_not_yet_available' => [
-                    'customer_interviews' => 'Milestone 6 (§21)',
-                    'commercial_evidence' => 'Milestone 6 (§21)',
-                    'experiments' => 'Milestone 6 (§21)',
-                ],
+                // §34's validation sections live on their own endpoint rather
+                // than here: they are a working view for customer discovery, and
+                // folding them into the ranked-list detail response would make
+                // every dashboard page load carry them.
+                'validation_at' => "/api/v1/opportunities/{$opportunity->id}/validation",
             ],
         ]);
     }

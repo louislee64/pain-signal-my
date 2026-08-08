@@ -196,7 +196,7 @@ def test_evidence_hierarchy_orders_paid_above_confirmed_above_interviewed():
     confirmed_once = score_commercial_evidence(TopicMeasurements(topic_slug="t", problem_confirmed_count=1))
     confirmed_twice = score_commercial_evidence(TopicMeasurements(topic_slug="t", problem_confirmed_count=2))
     piloted = score_commercial_evidence(TopicMeasurements(topic_slug="t", paid_pilot_count=1))
-    repeat_paying = score_commercial_evidence(TopicMeasurements(topic_slug="t", paid_customer_count=2))
+    repeat_paying = score_commercial_evidence(TopicMeasurements(topic_slug="t", paying_business_count=2))
 
     assert nothing < interviewed < confirmed_once < confirmed_twice < piloted < repeat_paying
     assert repeat_paying == 100.0
@@ -331,7 +331,7 @@ def test_repeat_paying_customers_add_a_larger_bonus_than_a_single_pilot(config):
     )
     pilot_only = score_opportunity(measurements(**base_inputs, paid_pilot_count=1), config, TODAY)
     repeat = score_opportunity(
-        measurements(**base_inputs, paid_pilot_count=1, paid_customer_count=2), config, TODAY
+        measurements(**base_inputs, paid_pilot_count=1, paying_business_count=2), config, TODAY
     )
 
     assert config.repeat_customer_bonus() > config.paid_pilot_bonus()
@@ -408,7 +408,7 @@ def test_real_paying_customers_outrank_pure_speculation(config):
             mention_count=8, previous_mention_count=6, avg_severity=55,
             avg_economic_impact=55, avg_urgency=50, signals_with_payer=6,
             dominant_frequency_hint="weekly",
-            problem_confirmed_count=3, paid_pilot_count=1, paid_customer_count=2,
+            problem_confirmed_count=3, paid_pilot_count=1, paying_business_count=2,
         ),
         config,
         TODAY,
@@ -512,7 +512,7 @@ def test_repeat_paying_customers_mean_productize(config):
             mention_count=30, avg_severity=80, avg_economic_impact=80, avg_urgency=80,
             signals_with_payer=30, dominant_frequency_hint="daily", distinct_sources=3,
             latest_signal_date=TODAY, problem_confirmed_count=3,
-            paid_pilot_count=2, paid_customer_count=threshold,
+            paid_pilot_count=2, paying_business_count=threshold,
         ),
         config,
         TODAY,
@@ -528,7 +528,7 @@ def test_productize_wins_over_earlier_states_it_also_satisfies(config):
             mention_count=30, avg_severity=80, avg_economic_impact=80, avg_urgency=80,
             signals_with_payer=30, dominant_frequency_hint="daily", distinct_sources=3,
             latest_signal_date=TODAY, problem_confirmed_count=5,
-            paid_pilot_count=3, paid_customer_count=5, has_strong_buyer_signal=True,
+            paid_pilot_count=3, paying_business_count=5, has_strong_buyer_signal=True,
         ),
         config,
         TODAY,
@@ -557,7 +557,7 @@ def test_recommendation_is_always_one_of_the_documented_states(config):
                             latest_signal_date=TODAY,
                             problem_confirmed_count=confirmed,
                             paid_pilot_count=pilots,
-                            paid_customer_count=customers,
+                            paying_business_count=customers,
                         ),
                         config,
                         TODAY,

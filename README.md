@@ -2,9 +2,9 @@
 
 Problem intelligence, opportunity discovery, and commercial-validation platform for Malaysian SME operational friction.
 
-See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, and [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API.
+See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API, and [`docs/commercial-validation.md`](./docs/commercial-validation.md) for the funnel, the gates and the personal-data posture.
 
-**Current status:** Milestone 5 — Dashboard. Adds the opportunity dashboard: an overview answering "what should I investigate or sell this week?", a detail page rendering every score's stored breakdown and evidence, topic pages, and a source-health page that catches the quiet failure (a collector that succeeds and returns nothing). LLM extraction remains off by default — nothing spends money until `config/llm.yaml` says so.
+**Current status:** Milestone 6 — Commercial Validation. A problem can now move from internet signal to paid-pilot tracking: §7's five gates, §21's CRM tables (interviews, commercial evidence, experiments), and §3's funnel with human-approved promotion. Recording a real payment is what finally lifts §29's 79-point cap. LLM extraction remains off by default.
 
 ## Stack
 
@@ -195,6 +195,43 @@ each call, and every call is recorded in `ai_usage` whether it succeeded or not.
 
 See [`docs/llm-providers.md`](./docs/llm-providers.md) for providers, costs, guards and the
 evaluation suite.
+
+## Commercial validation
+
+§3's funnel, gated by §7. An opportunity moves `observed → investigating →
+buyer_identified → problem_validated → commercially_validated → paid_pilot →
+repeatable_solution`, and each advance is refused until the evidence behind it
+exists.
+
+```bash
+API=http://localhost:8000/api/v1; ID=1
+
+curl $API/opportunities/$ID/validation          # gates, evidence, stage history
+
+curl -X POST $API/opportunities/$ID/interviews -H 'Content-Type: application/json' \
+  -d '{"company_ref":"retailer-a","problem_confirmed":true,"interviewed_at":"2026-08-02"}'
+
+curl -X POST $API/opportunities/$ID/evidence -H 'Content-Type: application/json' \
+  -d '{"evidence_type":"paid_pilot","company_ref":"retailer-a","value":4500,"occurred_at":"2026-08-07"}'
+
+curl -X PATCH $API/opportunities/$ID/stage -H 'Content-Type: application/json' \
+  -d '{"status":"paid_pilot","note":"RM4,500 pilot invoiced and paid"}'
+```
+
+Or use the form at `/opportunities/{id}/validation` in the dashboard.
+
+**The pipeline never promotes.** §52 — recording evidence updates
+`suggested_status`; moving `status` is always a person's call. The gap between the
+two is shown rather than auto-resolved.
+
+**Recording a payment lifts §29's cap.** Rerun `intelligence score` and a topic
+that was pinned under 79 can exceed it. On the demo data: 55.82 → 75.49, with
+`+15 paid pilot bonus (§29)` stored in the breakdown, `WATCH → SELL_PILOT`.
+
+**No personal data.** `customer_interviews` has no name, email, phone or company
+name — §21 and §7 Gate 2, with a test asserting the schema never grows one.
+`company_ref` is a pseudonymous label (`retailer-a`) whose only job is to let
+Gate 3 count independent businesses without naming them.
 
 ## Running tests
 

@@ -190,7 +190,9 @@ class OpportunityEndpointTest extends TestCase
         $meta = $this->getJson('/api/v1/opportunities')->json('meta');
 
         $this->assertArrayHasKey('industry', $meta['filters_not_yet_available']);
-        $this->assertArrayHasKey('commercial_stage', $meta['filters_not_yet_available']);
+        // §33's "commercial stage" is `status` now that §3's funnel is live.
+        $this->assertArrayNotHasKey('commercial_stage', $meta['filters_not_yet_available']);
+        $this->assertSame('status', $meta['commercial_stage_filter']);
     }
 
     public function test_index_echoes_back_the_filters_it_applied(): void
@@ -277,14 +279,15 @@ class OpportunityEndpointTest extends TestCase
         $this->assertSame(1, $buyer['affected_roles']['cashier']);
     }
 
-    public function test_show_declares_the_sections_that_arrive_in_milestone_6(): void
+    public function test_show_points_at_the_validation_endpoint(): void
     {
-        $opportunity = $this->opportunity('Not yet validated');
+        $opportunity = $this->opportunity('Needs validating');
 
         $meta = $this->getJson("/api/v1/opportunities/{$opportunity->id}")->json('meta');
 
-        $this->assertArrayHasKey('customer_interviews', $meta['sections_not_yet_available']);
-        $this->assertArrayHasKey('commercial_evidence', $meta['sections_not_yet_available']);
+        // The §34 validation sections are a separate working view, not part of
+        // every dashboard page load.
+        $this->assertSame("/api/v1/opportunities/{$opportunity->id}/validation", $meta['validation_at']);
     }
 
     public function test_show_works_for_an_opportunity_with_no_evidence_at_all(): void

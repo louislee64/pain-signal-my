@@ -215,6 +215,9 @@ opportunities_table = Table(
     Column("industry_id", Integer, nullable=True),
     Column("target_buyer", String, nullable=True),
     Column("status", String, nullable=False),
+    # §52: the engine writes `suggested_status` and never `status`. Both columns
+    # are mapped so the distinction is visible here rather than only in Laravel.
+    Column("suggested_status", String, nullable=True),
     Column("pain_score", Numeric(5, 2), nullable=True),
     Column("commercial_score", Numeric(5, 2), nullable=True),
     Column("opportunity_score", Numeric(5, 2), nullable=True),
@@ -248,6 +251,78 @@ ai_usage_table = Table(
     Column("succeeded", Boolean, nullable=False),
     Column("error", Text, nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+# --------------------------------------------------------------------------
+# Commercial CRM (§21, Milestone 6). Written by Laravel; read here so the
+# scoring engine can measure real human evidence instead of assuming zero.
+#
+# Schema ownership is unchanged: Laravel migrations are the source of truth and
+# nothing in this package runs DDL. These are read-only maps of tables that
+# already exist.
+# --------------------------------------------------------------------------
+
+customer_interviews_table = Table(
+    "customer_interviews",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("opportunity_id", Integer, ForeignKey("opportunities.id"), nullable=False),
+    # Pseudonymous business label, not an identity (§21, §7 Gate 2). It exists
+    # so Gate 3 can count independent businesses without naming them.
+    Column("company_ref", String(64), nullable=True),
+    Column("industry", String, nullable=True),
+    Column("company_size", String, nullable=True),
+    Column("respondent_role", String, nullable=True),
+    # Nullable: "they said no" and "we have not established it" are different
+    # findings, and only the first is a negative result.
+    Column("problem_confirmed", Boolean, nullable=True),
+    Column("frequency_score", SmallInteger, nullable=True),
+    Column("severity_score", SmallInteger, nullable=True),
+    Column("estimated_cost_score", SmallInteger, nullable=True),
+    Column("urgency_score", SmallInteger, nullable=True),
+    Column("existing_solution", Text, nullable=True),
+    Column("current_workaround", Text, nullable=True),
+    Column("current_spend_range", String, nullable=True),
+    Column("existing_budget", String, nullable=True),
+    Column("willingness_to_pay", String, nullable=True),
+    Column("pilot_interest", Boolean, nullable=True),
+    Column("notes", Text, nullable=True),
+    Column("interviewed_at", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=True),
+    Column("updated_at", DateTime(timezone=True), nullable=True),
+)
+
+commercial_evidence_table = Table(
+    "commercial_evidence",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("opportunity_id", Integer, ForeignKey("opportunities.id"), nullable=False),
+    Column("evidence_type", String, nullable=False),
+    Column("strength", String, nullable=False),
+    Column("value", Numeric(12, 2), nullable=True),
+    Column("currency", String(3), nullable=False),
+    Column("company_ref", String(64), nullable=True),
+    Column("notes", Text, nullable=True),
+    Column("occurred_at", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=True),
+    Column("updated_at", DateTime(timezone=True), nullable=True),
+)
+
+experiments_table = Table(
+    "experiments",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("opportunity_id", Integer, ForeignKey("opportunities.id"), nullable=False),
+    Column("hypothesis", Text, nullable=False),
+    Column("experiment_type", String, nullable=False),
+    Column("success_metric", Text, nullable=False),
+    Column("status", String, nullable=False),
+    Column("result", Text, nullable=True),
+    Column("succeeded", Boolean, nullable=True),
+    Column("started_at", DateTime(timezone=True), nullable=True),
+    Column("completed_at", DateTime(timezone=True), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=True),
+    Column("updated_at", DateTime(timezone=True), nullable=True),
 )
 
 

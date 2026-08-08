@@ -54,10 +54,27 @@ const { data: dashboard, error: dashboardError } = await useFetch<{
 // this page omits those controls rather than shipping dead ones).
 const recommendation = ref('')
 const minConfidence = ref('')
+const stage = ref('')
+
+// §3's funnel. Now a real filter: `status` is §33's "commercial stage", and it
+// is human-owned (§52) rather than derived from a score.
+const STAGES = [
+  'observed',
+  'investigating',
+  'buyer_identified',
+  'problem_validated',
+  'commercially_validated',
+  'paid_pilot',
+  'repeatable_solution',
+  'product_candidate',
+  'saas_or_managed_service',
+]
+
 const query = computed(() => {
   const params = new URLSearchParams({ limit: '50' })
   if (recommendation.value) params.set('recommendation', recommendation.value)
   if (minConfidence.value) params.set('min_confidence', minConfidence.value)
+  if (stage.value) params.set('status', stage.value)
   return params.toString()
 })
 
@@ -189,6 +206,16 @@ function cardFigure(key: string, card: Card): string | null {
             </label>
 
             <label class="filter">
+              <span class="filter__label">Stage</span>
+              <select v-model="stage" class="filter__control">
+                <option value="">All</option>
+                <option v-for="s in STAGES" :key="s" :value="s">
+                  {{ s.replace(/_/g, ' ') }}
+                </option>
+              </select>
+            </label>
+
+            <label class="filter">
               <span class="filter__label">Min confidence</span>
               <select v-model="minConfidence" class="filter__control">
                 <option value="">Any</option>
@@ -244,9 +271,8 @@ function cardFigure(key: string, card: Card): string | null {
         </div>
 
         <p v-if="list?.meta.filters_not_yet_available" class="footnote">
-          Industry and commercial-stage filters are not shown:
           <template v-for="(reason, name) in list.meta.filters_not_yet_available" :key="name">
-            {{ reason }}<template v-if="name !== 'commercial_stage'">; </template>
+            No {{ name }} filter: {{ reason }}.
           </template>
         </p>
       </section>

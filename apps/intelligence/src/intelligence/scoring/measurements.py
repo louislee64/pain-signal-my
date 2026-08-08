@@ -4,11 +4,10 @@ Kept separate from scoring/model.py on purpose: how a number is *measured* and
 how it is *scored* change for completely different reasons, and the scoring
 arithmetic must stay testable without a database.
 
-Every commercial figure (interviews, confirmations, pilots, paying customers)
-is honestly zero here — the commercial CRM tables are Milestone 6 (§21). That
-is not a gap being papered over: §29's cap exists precisely so an opportunity
-with no human validation cannot present as a certainty, and it is doing exactly
-that job in the meantime.
+Commercial figures come from scoring/commercial.py, which reads §21's CRM
+tables. They are zero for any topic nobody has investigated, and §29's cap keeps
+those honest: an opportunity with no human validation cannot present as a
+certainty however good its inferred signals look.
 """
 
 from datetime import date, timedelta
@@ -24,6 +23,10 @@ from intelligence.db import (
     raw_documents_table,
     topics_table,
     trend_metrics_table,
+)
+from intelligence.scoring.commercial import (
+    CommercialEvidenceCounts,
+    gather_commercial_evidence,
 )
 from intelligence.scoring.config import ScoringConfig
 from intelligence.scoring.model import TopicMeasurements
@@ -56,10 +59,17 @@ def gather_measurements(
     previous = _previous_counts(conn, previous_start, previous_end)
     search = _search_interest_by_topic(conn, config, as_of)
 
+    # §21's human evidence. Read once for every topic rather than per topic:
+    # this is the one input to the score that a person had to go out and earn,
+    # and it is cheap to fetch in bulk.
+    commercial = gather_commercial_evidence(conn)
+    no_evidence = CommercialEvidenceCounts()
+
     measurements: dict[int, TopicMeasurements] = {}
 
     for topic_id, agg in current.items():
         slug, parent_slug = topics.get(topic_id, (str(topic_id), None))
+        human = commercial.get(topic_id, no_evidence)
 
         measurements[topic_id] = TopicMeasurements(
             topic_slug=slug,
@@ -76,12 +86,12 @@ def gather_measurements(
             distinct_sources=agg["distinct_sources"],
             avg_classification_confidence=agg["avg_classification_confidence"],
             latest_signal_date=agg["latest_signal_date"],
-            # Milestone 6 (§21) supplies these; zero until then.
-            interview_count=0,
-            problem_confirmed_count=0,
-            paid_pilot_count=0,
-            paid_customer_count=0,
-            has_strong_buyer_signal=False,
+            interview_count=human.interview_count,
+            problem_confirmed_count=human.problem_confirmed_count,
+            independent_confirmations=human.independent_confirmations,
+            paid_pilot_count=human.paid_pilot_count,
+            paying_business_count=human.paying_business_count,
+            has_strong_buyer_signal=human.has_strong_buyer_signal,
         )
 
     return measurements

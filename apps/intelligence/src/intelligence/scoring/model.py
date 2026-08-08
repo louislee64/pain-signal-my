@@ -105,12 +105,25 @@ class TopicMeasurements:
     avg_classification_confidence: float | None = None
     latest_signal_date: date | None = None
 
-    # Milestone 6 (commercial CRM) fills these. Until then they are honestly
-    # zero — which is exactly why §29 caps an uncommercially-validated score.
+    # §21's commercial CRM fills these (scoring/commercial.py). They stay zero
+    # for any topic nobody has investigated, which is exactly why §29 caps an
+    # uncommercially-validated score.
     interview_count: int = 0
     problem_confirmed_count: int = 0
+
+    # §7 Gate 3 asks for independent *businesses*, not interviews: two
+    # conversations at one company are one company's opinion. Counted by
+    # distinct pseudonymous company_ref, so it can be lower than
+    # problem_confirmed_count and never higher.
+    independent_confirmations: int = 0
+
     paid_pilot_count: int = 0
-    paid_customer_count: int = 0
+
+    # §7 Gate 5 asks for a *second paying business*. Distinct businesses that
+    # paid, not payment events — two pilots with one customer prove retention,
+    # not repeatability.
+    paying_business_count: int = 0
+
     has_strong_buyer_signal: bool = False
 
 
@@ -209,7 +222,7 @@ def score_commercial(m: TopicMeasurements, config: ScoringConfig) -> ScoreBreakd
     if commercial_evidence == 0.0:
         notes.append(
             "commercial_evidence: no interviews, pilots or paying customers recorded "
-            "(commercial CRM arrives in Milestone 6)"
+            "(record them via POST /api/v1/opportunities/{id}/interviews and /evidence)"
         )
 
     dimensions = [
@@ -225,8 +238,10 @@ def score_commercial(m: TopicMeasurements, config: ScoringConfig) -> ScoreBreakd
             {
                 "interviews": m.interview_count,
                 "problem_confirmed": m.problem_confirmed_count,
+                "independent_confirmations": m.independent_confirmations,
                 "paid_pilots": m.paid_pilot_count,
-                "paying_customers": m.paid_customer_count,
+                "paying_businesses": m.paying_business_count,
+                "strong_commercial_signal": m.has_strong_buyer_signal,
             },
             commercial_evidence,
             weights["commercial_evidence"],
@@ -249,7 +264,7 @@ def score_commercial_evidence(m: TopicMeasurements) -> float:
     enforced here by construction rather than by weighting luck.
     """
 
-    if m.paid_customer_count >= 2:
+    if m.paying_business_count >= 2:
         return 100.0
     if m.paid_pilot_count >= 1:
         return 85.0
@@ -333,10 +348,10 @@ def is_commercially_validated(m: TopicMeasurements) -> bool:
     Absent payment, Gate 3's full bar applies.
     """
 
-    if m.paid_pilot_count >= 1 or m.paid_customer_count >= 1:
+    if m.paid_pilot_count >= 1 or m.paying_business_count >= 1:
         return True
 
-    return m.problem_confirmed_count >= 2 and m.has_strong_buyer_signal
+    return m.independent_confirmations >= 2 and m.has_strong_buyer_signal
 
 
 def score_opportunity(
@@ -360,7 +375,7 @@ def score_opportunity(
         score += bonus
         notes.append(f"+{bonus:g} paid pilot bonus (§29)")
 
-    if m.paid_customer_count >= 2:
+    if m.paying_business_count >= 2:
         bonus = config.repeat_customer_bonus()
         score += bonus
         notes.append(f"+{bonus:g} repeat paying customer bonus (§29)")
@@ -422,7 +437,7 @@ def recommend(
     should read PRODUCTIZE even though it also satisfies every earlier rule.
     """
 
-    if m.paid_customer_count >= config.recommendation_rule("productize_min_paid_customers"):
+    if m.paying_business_count >= config.recommendation_rule("productize_min_paid_customers"):
         return PRODUCTIZE
 
     if m.has_strong_buyer_signal or m.paid_pilot_count >= 1:

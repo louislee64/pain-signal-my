@@ -1,11 +1,12 @@
-# Data Model — Milestone 5
+# Data Model — Milestone 6
 
 Status: `sources`, `ingestion_runs`, `raw_documents` (Milestone 1); `normalized_documents`,
 `topics`, `document_topics`, `problem_signals`, `topic_daily_metrics` (Milestone 2);
-`keywords`, `trend_metrics` (Milestone 3); `opportunities`, `ai_usage` (Milestone 4) — all
-per PROJECT_SPEC.md §20. Milestone 5 added no tables: the dashboard reads what the
-pipeline already stores, which is the check that Milestone 4 stored enough.
-`official_metrics` and the commercial CRM tables (§21) land later.
+`keywords`, `trend_metrics` (Milestone 3); `opportunities`, `ai_usage` (Milestone 4);
+`customer_interviews`, `commercial_evidence`, `experiments`,
+`opportunity_stage_transitions` (Milestone 6) — per PROJECT_SPEC.md §20/§21.
+Milestone 5 added no tables: the dashboard reads what the pipeline already stores,
+which was the check that Milestone 4 stored enough. `official_metrics` lands later.
 
 ## Schema ownership
 
@@ -305,3 +306,69 @@ low-confidence extraction that became a row would be indistinguishable from a
 confident one. An invented topic slug is dropped rather than mapped to something
 nearby — a wrong topic silently inflates that topic's score, while a missing one
 only loses a signal.
+
+## customer_interviews
+
+§7 Gate 2 — one real conversation with one real business.
+
+**Holds no identifying columns.** No name, email, phone or company name (§21:
+"Avoid collecting unnecessary personal information"; §7 Gate 2: "Do NOT
+necessarily store identifying personal information"). There is a test asserting
+the schema never grows one, because a column added in a hurry is how this posture
+gets lost. What the scoring model needs is categories — industry, company size,
+respondent role — and none of those identify a person.
+
+`company_ref` is the one field that needs justifying. §7 Gate 3 requires "multiple
+independent businesses confirm the problem", a count of distinct businesses that
+is impossible against a schema which cannot distinguish them — and two interviews
+at the same company are not independent evidence. So it is an opaque
+operator-chosen label (`retailer-a`), validated as `^[a-z0-9][a-z0-9_-]*$` and
+capped at 64 characters so it cannot become an identity by accident.
+
+`problem_confirmed` and `pilot_interest` are **nullable booleans**. "They said no"
+and "we have not established it" are different findings, and only the first is a
+negative result worth acting on; `problem_denied_count` is reported separately for
+that reason.
+
+## commercial_evidence
+
+§21 — the table §29's 79-point cap waits for. Until a row lands here, no amount of
+inferred signal can present an opportunity as a certainty.
+
+`evidence_type` is CHECK-constrained to §21's nine types in Postgres *and*
+enum-validated in the model. An unrecognised type would be silently ignored by the
+scoring engine while looking like recorded evidence in the UI — the worst of both,
+which is why it is guarded twice.
+
+`value` is nullable rather than defaulting to 0: most types have no amount, and 0
+would read as "worth nothing" rather than "not applicable". The API warns when a
+*paid* type arrives with no value or no `company_ref`, since §29's bonus and
+Gate 5's repeatability both read those fields.
+
+## experiments
+
+`hypothesis` and `success_metric` are NOT NULL, which is the point of the table. An
+experiment with no stated bar for success cannot fail — whatever happens reads as
+encouraging — so the row would record effort rather than evidence. A `completed`
+experiment is refused without a `result`, enforced in the model rather than the
+schema because `completed` is set by the same request that supplies the result.
+
+## opportunities: status vs suggested_status
+
+`status` is §3's funnel position and is written **only** by `PATCH /stage`. §52:
+"AI suggests. Human approves." `suggested_status` is what the engine computes from
+§7's gates and rewrites on every evidence change.
+
+Two columns rather than one because collapsing them would force a choice between
+an invisible suggestion and an automatic promotion. The gap between them is the
+information an operator acts on.
+
+## opportunity_stage_transitions
+
+One row per stage decision, holding from/to, the note, **what the engine was
+suggesting at that moment**, and a **frozen evidence snapshot**.
+
+The snapshot is denormalised deliberately. The underlying rows keep changing, and
+the question this table answers is "what did we know when we decided" — which a
+live join can never reconstruct. §57 needs exactly that to recalibrate the scoring
+weights against real commercial outcomes.

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\CommercialValidationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\OpportunityController;
 use App\Http\Controllers\Api\SourceController;
@@ -37,6 +38,23 @@ Route::prefix('v1')->group(function () {
     // Ranked opportunities (PROJECT_SPEC.md §36).
     Route::get('/opportunities', [OpportunityController::class, 'index']);
     Route::get('/opportunities/{id}', [OpportunityController::class, 'show'])->whereNumber('id');
+
+    // Commercial validation (PROJECT_SPEC.md §21, §36). The only write endpoints
+    // in the project. §52's line is enforced here: recording evidence updates
+    // `suggested_status`; only PATCH /stage moves `status`, and only a human
+    // calls it.
+    Route::prefix('/opportunities/{id}')->whereNumber('id')->group(function () {
+        Route::get('/validation', [CommercialValidationController::class, 'show']);
+        Route::post('/interviews', [CommercialValidationController::class, 'storeInterview']);
+        Route::post('/evidence', [CommercialValidationController::class, 'storeEvidence']);
+        Route::post('/experiments', [CommercialValidationController::class, 'storeExperiment']);
+        Route::patch('/experiments/{experimentId}', [CommercialValidationController::class, 'updateExperiment'])
+            ->whereNumber('experimentId');
+        Route::patch('/stage', [CommercialValidationController::class, 'updateStage']);
+        // Human-authored fields (§52). The only writer of target_buyer, which
+        // §7 Gate 1 requires — the scoring engine never touches these columns.
+        Route::patch('/', [CommercialValidationController::class, 'updateNarrative']);
+    });
 
     // Topic pages. Keyed by slug — the stable identifier in config/topics.yaml.
     Route::get('/topics', [TopicController::class, 'index']);
