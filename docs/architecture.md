@@ -313,6 +313,37 @@ again.
 §38's conditional-fetch path, written for data.gov.my and never exercised because
 that API sends no validators, now returns real 304s from live feeds.
 
+### Forum discussions (`reddit_subreddit`, built, disabled)
+
+Built because news does not carry what the taxonomy is written for — see the yield
+numbers in [text-sources.md](text-sources.md). Three architectural points:
+
+**It uses the official API and never fetches a page.** `www.reddit.com/robots.txt`
+is `Disallow: /` and the legacy unauthenticated `.json` endpoints return 403. The
+collector talks to `oauth.reddit.com` under OAuth2 client-credentials — §13's tier
+1 — which is why robots.txt does not apply: we are not crawling. A test asserts
+every request targets the API host or the token endpoint, so the distinction cannot
+be eroded later by someone adding a page fetch "to get more text".
+
+**The username is dropped, and that is a considered call rather than a default.** A
+Reddit handle is pseudonymous but durable: it links every post a person has made
+across every subreddit, making it a stronger identifier than the journalist bylines
+already dropped from RSS. §21 says collect nothing unnecessary, and nothing
+downstream needs to know who posted.
+
+**Engagement counters are excluded to protect the content hash.** `score` and
+`num_comments` change hourly. Including them would alter the payload hash and mark
+every recent post `updated` on every nightly run — rewriting `raw_documents` for
+data nothing consumes. Engagement-weighted severity, if ever wanted, needs its own
+mechanism rather than a field that churns the raw layer.
+
+It ships `enabled: false` with `terms_status: needs_review` because Reddit's Data
+API terms restrict commercial use and §6 gives this project commercial intent —
+a licensing decision for a human. Tests assert it stays that way, so no future
+change can quietly enable it. It is also absent from the schedule on purpose: a
+nightly entry for a source with unresolved terms would be a scheduled licensing
+risk.
+
 ## Why this shape
 
 - Three independently deployable apps sharing two datastores, per `PROJECT_SPEC.md` §8/§9 — no message broker or orchestrator introduced yet (`PROJECT_SPEC.md` §54 explicitly excludes Kafka/Kubernetes for V1).

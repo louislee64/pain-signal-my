@@ -86,11 +86,16 @@ docker compose exec api php artisan sources:ingest
 docker compose exec api php artisan sources:ingest --type=news_feed
 ```
 
-Two source types are wired: the data.gov.my fuel-price dataset, and eight Malaysian
-news/business RSS feeds (English and Bahasa Malaysia). Article pages are fetched only for
-feeds that publish headlines alone, and only within robots.txt and rate limits —
-see [`docs/text-sources.md`](./docs/text-sources.md), which also reports the measured
-signal yield honestly.
+Three collectors are wired. Two are live: the data.gov.my fuel-price dataset, and eight
+Malaysian news/business RSS feeds (English and Bahasa Malaysia). Article pages are fetched
+only for feeds that publish headlines alone, and only within robots.txt and rate limits.
+
+The third, `reddit_subreddit`, is **built but disabled**: it needs Reddit API credentials,
+and Reddit's Data API terms restrict commercial use — a licensing decision, not a technical
+one. It is the source type most likely to produce real SME operational signals, since news
+turns out to carry macroeconomic commentary instead.
+See [`docs/text-sources.md`](./docs/text-sources.md), which reports the measured signal
+yield honestly and explains what to decide before switching Reddit on.
 
 Re-running `ingest` is safe — unchanged rows are skipped, changed rows are updated in place,
 nothing is duplicated. See [`docs/data-model.md`](./docs/data-model.md) and

@@ -90,7 +90,39 @@ There is a test (`tests/collectors/test_rss.py::TestRegistryConsistency`) assert
 that `rate_limit` and `config.requests_per_minute` agree, and that article
 fetching stays confined to the feeds that need it.
 
-## 3. A genuinely new source type (not data.gov.my, not a feed)
+## 3. Another subreddit
+
+Config-only, reusing `reddit_subreddit` — but read
+[text-sources.md](text-sources.md) first: these sources ship disabled, need
+credentials in `apps/intelligence/.env`, and carry an unresolved commercial-use
+terms question.
+
+```yaml
+  - slug: reddit_somewhere
+    name: "Reddit — r/somewhere"
+    source_type: forum             # `sources:ingest --type=forum`
+    base_url: "https://oauth.reddit.com"
+    collector: reddit_subreddit
+    config:
+      subreddit: somewhere
+      requests_per_minute: 60      # Reddit's free tier is 100/min per CLIENT,
+                                   # shared by every source using the credentials
+      max_pages: 10
+      min_body_chars: 120          # forums produce one-liners in bulk
+      language: en
+      region: MY
+    rate_limit: "60/minute"
+    terms_status: needs_review
+    personal_data_risk: medium
+    enabled: false
+```
+
+The combined rate across all Reddit sources must stay under 100/minute, because
+the budget belongs to the OAuth client rather than the subreddit. Tests assert
+each source declares ≤ 60 and that `rate_limit` matches
+`config.requests_per_minute`.
+
+## 4. A genuinely new source type (not data.gov.my, not a feed, not Reddit)
 
 Only then write a new collector:
 

@@ -1,0 +1,27 @@
+{
+  "kind": "Listing",
+  "data": {
+    "after": null,
+    "dist": 1,
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "ddd444",
+          "name": "t3_ddd444",
+          "subreddit": "malaysia",
+          "author": "page_two_user",
+          "title": "Kekurangan pekerja di kedai, tiap-tiap hari tak cukup orang",
+          "selftext": "Masalah pekerja memang teruk sekarang. Kekurangan pekerja bermakna kami kena tutup awal dan jadual pekerja tak pernah cukup. Kos operasi meningkat sebab overtime.",
+          "permalink": "/r/malaysia/comments/ddd444/kekurangan_pekerja/",
+          "created_utc": 1785900000.0,
+          "is_self": true,
+          "over_18": false,
+          "score": 31,
+          "num_comments": 9
+        }
+      }
+    ],
+    "before": null
+  }
+}

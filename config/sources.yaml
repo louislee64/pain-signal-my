@@ -285,3 +285,119 @@ sources:
     terms_status: unreviewed
     personal_data_risk: low
     enabled: true
+
+  # ---------------------------------------------------------------------------
+  # Public forum discussions (§17), via the `reddit_subreddit` collector.
+  #
+  # ALL THREE ARE DISABLED AND NEED A DECISION FROM YOU. Nothing here runs until
+  # you set `enabled: true`, and you should not do that until you have read the
+  # two paragraphs below.
+  #
+  # WHY THESE MATTER. Every other source in this file is somebody describing the
+  # economy. These are business owners describing their own operations, in the
+  # phrasing §4's taxonomy was actually written for. Measured yield on news feeds
+  # was 9 keyword matches in 191 articles, all of it macroeconomic cost
+  # commentary landing on the one topic §28 scores at implementation_fit 30. The
+  # topics where fit is 90-95 — billing, inventory, bookings, manual workflow,
+  # integrations — have no real signals at all. This source type is the one that
+  # can change that.
+  #
+  # WHY THEY ARE OFF. Two separate reasons, and only the second is yours to
+  # resolve:
+  #
+  #   1. Credentials. The collector needs REDDIT_CLIENT_ID and
+  #      REDDIT_CLIENT_SECRET in apps/intelligence/.env. Create a "script" app at
+  #      https://www.reddit.com/prefs/apps. Without them every run fails with an
+  #      actionable message rather than quietly collecting nothing.
+  #
+  #   2. Terms. Reddit's Data API terms and Public Content Policy restrict
+  #      commercial use, and §6 gives this project commercial intent. That is a
+  #      licensing judgement, not a technical check, so `terms_status` is
+  #      `needs_review` and stays that way until a human decides. §17 asks for
+  #      exactly this review.
+  #
+  # HOW IT ACCESSES REDDIT. The official Data API on oauth.reddit.com, with
+  # credentials — §13's tier 1. It never fetches a reddit.com page, which matters
+  # because https://www.reddit.com/robots.txt is `User-agent: * / Disallow: /`
+  # and the legacy unauthenticated .json endpoints now return 403. Using the
+  # licensed API is not a way around that refusal; it is why the refusal does not
+  # apply. Do not "fix" this later by adding a page fetch.
+  #
+  # personal_data_risk is `medium`, the highest in this file, and that is not
+  # pessimism. This is user-generated text where people volunteer details about
+  # themselves and their businesses. The collector never stores the username —
+  # a Reddit handle links every post a person ever made, which makes it a
+  # stronger identifier than a journalist's byline, not a weaker one — and it
+  # scrubs emails and phone numbers. But the prose itself is written by
+  # identifiable people, and §49's PDPA posture should be revisited before this
+  # is switched on.
+
+  - slug: reddit_malaysia
+    name: "Reddit — r/malaysia"
+    source_type: forum
+    base_url: "https://oauth.reddit.com"
+    collector: reddit_subreddit
+    config:
+      subreddit: malaysia
+      requests_per_minute: 60
+      max_pages: 10
+      # Drop one-line posts: a title with no body rarely describes a problem in
+      # enough detail for §22's pipeline to classify, and forums are full of them.
+      min_body_chars: 120
+      language: en
+      region: MY
+    collection_method: http_api
+    rate_limit: "60/minute"
+    reliability_score: 40
+    license: "Reddit Data API Terms; commercial use restricted — see notes above"
+    terms_url: "https://redditinc.com/policies/data-api-terms"
+    terms_status: needs_review
+    personal_data_risk: medium
+    enabled: false
+
+  - slug: reddit_malaysianpf
+    name: "Reddit — r/MalaysianPF"
+    source_type: forum
+    base_url: "https://oauth.reddit.com"
+    collector: reddit_subreddit
+    config:
+      subreddit: MalaysianPF
+      requests_per_minute: 60
+      max_pages: 10
+      min_body_chars: 120
+      language: en
+      region: MY
+    collection_method: http_api
+    rate_limit: "60/minute"
+    # Higher than r/malaysia: personal-finance discussion runs closer to
+    # invoicing, tax, e-invoice and cash-flow topics, which is where §28's
+    # implementation fit is high.
+    reliability_score: 45
+    license: "Reddit Data API Terms; commercial use restricted — see notes above"
+    terms_url: "https://redditinc.com/policies/data-api-terms"
+    terms_status: needs_review
+    personal_data_risk: medium
+    enabled: false
+
+  - slug: reddit_bolehland
+    name: "Reddit — r/Bolehland"
+    source_type: forum
+    base_url: "https://oauth.reddit.com"
+    collector: reddit_subreddit
+    config:
+      subreddit: Bolehland
+      requests_per_minute: 60
+      max_pages: 10
+      min_body_chars: 120
+      language: en
+      region: MY
+    collection_method: http_api
+    rate_limit: "60/minute"
+    # Lowest of the three: complaint-heavy, which suits severity extraction, but
+    # much of it is consumer rather than business complaint.
+    reliability_score: 35
+    license: "Reddit Data API Terms; commercial use restricted — see notes above"
+    terms_url: "https://redditinc.com/policies/data-api-terms"
+    terms_status: needs_review
+    personal_data_risk: medium
+    enabled: false

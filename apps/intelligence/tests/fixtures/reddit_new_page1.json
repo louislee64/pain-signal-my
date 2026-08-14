@@ -1,0 +1,84 @@
+{
+  "kind": "Listing",
+  "data": {
+    "after": "t3_page1last",
+    "dist": 4,
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "aaa111",
+          "name": "t3_aaa111",
+          "subreddit": "malaysia",
+          "author": "towkay_kedai",
+          "author_fullname": "t2_abc123",
+          "author_flair_text": "Selangor",
+          "title": "Stock discrepancy every month between my two outlets",
+          "selftext": "Boss here. Every month we do stock count and the numbers never match between my two outlets. Kena reconcile manual entry in Excel setiap hari and it is very frustrating. We keep losing money on shrinkage nobody can explain. Reach me at kedai@example.test or 012-345 6789 if you sell something that fixes this.",
+          "permalink": "/r/malaysia/comments/aaa111/stock_discrepancy_every_month/",
+          "created_utc": 1786000000.0,
+          "link_flair_text": "Business",
+          "is_self": true,
+          "over_18": false,
+          "score": 128,
+          "ups": 128,
+          "num_comments": 47,
+          "upvote_ratio": 0.94
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "bbb222",
+          "name": "t3_bbb222",
+          "subreddit": "malaysia",
+          "author": "another_user",
+          "title": "Short one",
+          "selftext": "Too short.",
+          "permalink": "/r/malaysia/comments/bbb222/short_one/",
+          "created_utc": 1785999000.0,
+          "is_self": true,
+          "over_18": false,
+          "score": 3,
+          "num_comments": 0
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "ccc333",
+          "name": "t3_ccc333",
+          "subreddit": "malaysia",
+          "author": "deleted_poster",
+          "title": "My accounting software does not integrate with our POS at all",
+          "selftext": "[removed]",
+          "permalink": "/r/malaysia/comments/ccc333/my_accounting_software/",
+          "created_utc": 1785998000.0,
+          "is_self": true,
+          "over_18": false,
+          "score": 12,
+          "num_comments": 5
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "page1last",
+          "name": "t3_page1last",
+          "subreddit": "malaysia",
+          "author": "third_user",
+          "title": "Late payment from corporate customers is killing our cash flow",
+          "selftext": "We invoice big companies and then wait ninety days. Meanwhile our own supplier invoice is due in thirty. Chasing payment is now a daily job for one staff member, which is a manual process that should not exist. Every month it is the same problem.",
+          "permalink": "/r/malaysia/comments/page1last/late_payment_from_corporate/",
+          "created_utc": 1785997000.0,
+          "link_flair_text": "Business",
+          "is_self": true,
+          "over_18": false,
+          "score": 64,
+          "num_comments": 22
+        }
+      }
+    ],
+    "before": null
+  }
+}

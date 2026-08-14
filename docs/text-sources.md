@@ -3,20 +3,21 @@
 PROJECT_SPEC.md §17 (public text sources), §13 (acquisition policy), §21 (personal
 data), §38 (scheduling), §43 (multilingual).
 
-The first text source in the project. Everything before this was data.gov.my fuel
+Two collectors live here. `rss_feed` (eight Malaysian news feeds, live) and
+`reddit_subreddit` (three subreddits, built and deliberately disabled pending a
+terms decision). Before either existed the only source was data.gov.my fuel
 prices — machine-generated numbers that match no topic keyword by design — so the
 whole text pipeline was working on demo data.
 
-**Read the yield section before deciding this source type is worth expanding.** The
-collector works; the honest answer about what news feeds contain is less
-comfortable.
+**Read the yield section before adding more news feeds.** The collector works;
+the honest answer about what news carries is less comfortable, and it is the
+reason the Reddit collector exists.
 
 ---
 
-## What was built
+## News feeds (`rss_feed`, live)
 
-One config-driven collector, `rss_feed`. Adding a feed is a `config/sources.yaml`
-entry and nothing else:
+Adding a feed is a `config/sources.yaml` entry and nothing else:
 
 ```yaml
   - slug: fmt_business
@@ -254,9 +255,171 @@ source to measure.
 ### What would actually move the needle
 
 Not more news feeds. A source where business owners describe their own
-operational problems — a forum, app-store reviews, an industry-association
-mailing list. §17 lists those categories; each has a terms question this one does
-not, which is why news came first.
+operational problems. That is what the Reddit collector below is for — built,
+tested, and deliberately switched off pending a decision only you can make.
+
+---
+
+## Forum discussions: the Reddit collector
+
+`reddit_subreddit`, covering §17's "public forum discussions". Three sources are
+registered — `reddit_malaysia`, `reddit_malaysianpf`, `reddit_bolehland` — and
+**all three ship `enabled: false`**.
+
+### Why this source type is different
+
+Every other source in the registry is somebody describing the economy. This is
+owners describing their own operations, in the phrasing §4's taxonomy was written
+for. The fixture used in the tests is representative of what the format produces:
+
+> "Boss here. Every month we do stock count and the numbers never match between
+> my two outlets. Kena reconcile manual entry in Excel setiap hari…"
+
+That single post touches `stock_count`, `reconciliation`, `workflow_manual_process`
+and a `business_owner` payer, and it carries the frequency marker (`setiap hari`)
+that §27's recurrence dimension reads. No news article in the 191-article corpus
+did any of that. The topics where §28 scores implementation fit 90–95 — billing,
+inventory, bookings, manual workflow, integrations — currently have **zero** real
+signals; this is the source type that can change that.
+
+### How it accesses Reddit, and why that is not a workaround
+
+```
+https://www.reddit.com/robots.txt  →  User-agent: *
+                                      Disallow: /
+legacy https://www.reddit.com/r/<sub>/new.json  →  403
+```
+
+Reddit refuses to be crawled, and closed the unauthenticated JSON path. So the
+collector uses the **official Data API** on `oauth.reddit.com` with OAuth2
+client-credentials — §13's **tier 1**, above everything else in this document —
+and **never fetches a reddit.com page**.
+
+That distinction is the whole basis for using this source at all. robots.txt
+governs crawling; the Data API is credentialed, licensed access under separate
+terms. We are not routing around the refusal, we are not the thing it refuses.
+There is a test (`test_it_never_requests_a_reddit_com_web_page`) asserting every
+request goes to the API host or the token endpoint, precisely so nobody later
+"improves" this by adding a page fetch or a browser User-Agent.
+
+### Why it is disabled — two separate reasons
+
+**1. Credentials (mechanical).** Create a *script* app at
+<https://www.reddit.com/prefs/apps>, then in `apps/intelligence/.env`:
+
+```bash
+REDDIT_CLIENT_ID=...
+REDDIT_CLIENT_SECRET=...
+REDDIT_USERNAME=louislee64   # optional but recommended
+```
+
+`REDDIT_USERNAME` shapes the User-Agent into Reddit's documented form
+(`python:my.painradar.collector:0.1 (by /u/<username>)`); it throttles generic
+agents hard. A contact URL is substituted when absent.
+
+Without credentials, an enabled source fails loudly rather than quietly
+collecting nothing — verified end to end:
+
+```
+run status: failed
+error: "reddit_subreddit collector needs REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET
+        in apps/intelligence/.env. Create a 'script' app at
+        https://www.reddit.com/prefs/apps to get them, and read the
+        commercial-use note in docs/text-sources.md before enabling the source."
+health: {"status": "failing", "reasons": ["Last run failed", "1 error(s) in the last run"]}
+```
+
+Wrong credentials are distinguished from an outage: a 401/403 on the token
+endpoint says "confirm the app is a script type and the secret has not been
+rotated" instead of retrying into a wall.
+
+**2. Terms (yours to decide).** Reddit's Data API Terms and Public Content Policy
+restrict commercial use, and §6 gives this project commercial intent. That is a
+licensing judgement about someone else's platform, not a technical check, so
+`terms_status: needs_review` and nothing enables itself. §17 asks for exactly this
+review. There are tests asserting all three sources stay disabled and
+`needs_review`, so no future code change can flip them on quietly.
+
+Reddit's own robots.txt points at
+[r/reddit4researchers](https://www.reddit.com/r/reddit4researchers/) for
+non-commercial research access — worth reading before deciding, since it may be
+the cleaner route depending on how you characterise this project.
+
+### §21: the username is the whole problem
+
+`personal_data_risk: medium` — the highest in the registry, and not pessimism.
+This is user-generated text where people volunteer details about themselves and
+their businesses.
+
+**The Reddit username is never stored.** `author`, `author_fullname` and
+`author_flair_text` are all excluded. A handle links every post a person has ever
+made across every subreddit, which makes it a *stronger* identifier than a
+journalist's byline, not a weaker one — "pseudonymous" is not "anonymous". Emails
+and phone numbers are scrubbed from title and body by the same
+`scrub_contact_details` used for news.
+
+What is stored is the post id, the subreddit, the permalink, the timestamp, flair,
+and the scrubbed text. The permalink contains no username.
+
+**Before enabling, revisit §49's PDPA posture.** Nothing here stores an identifier
+deliberately, but the prose is written by identifiable people who did not publish
+it as a business record, and that is a different situation from a news feed.
+
+### Two smaller decisions worth knowing
+
+**Engagement counters are not stored** — `score`, `ups`, `num_comments`,
+`upvote_ratio` are all dropped. Not squeamishness: they change hourly, so
+including them in the payload would change the content hash and mark every recent
+post `updated` on every nightly run. Nothing consumes them (§26's
+mention_frequency counts signals, not upvotes), so a snapshot that goes stale
+immediately buys churn and no information. If engagement-weighted severity is ever
+wanted it needs its own mechanism, not a field that silently rewrites
+`raw_documents` every night.
+
+**Tombstones are not text.** `[deleted]` and `[removed]` bodies are discarded
+rather than stored, so a removed post cannot look like a real one that happened to
+say nothing. The title survives if it is real. `min_body_chars: 120` drops
+one-line posts, which forums produce in bulk and §22 cannot classify.
+
+### Rate limiting
+
+Reddit's free tier is 100 requests/minute **per OAuth client**, shared across every
+source using the same credentials. The registry declares 60/minute for each of the
+three subreddits so they cannot breach it between them, and there is a test
+asserting that. Beyond the static floor, the collector reads
+`X-Ratelimit-Remaining` / `X-Ratelimit-Reset` and sleeps when Reddit says the
+budget is gone — server feedback beats any static guess, because the budget is
+shared. Pagination is capped at 10 pages per run and logs when the cap bites.
+
+### Enabling it
+
+```bash
+# 1. credentials in apps/intelligence/.env, then:
+docker compose up -d --force-recreate intelligence
+
+# 2. decide the terms question, then set enabled: true and terms_status
+#    in config/sources.yaml for the subreddits you want
+
+docker compose exec api php artisan sources:sync
+docker compose exec api php artisan sources:ingest --type=forum
+docker compose exec intelligence python -m intelligence.cli normalize
+docker compose exec intelligence python -m intelligence.cli classify
+docker compose exec intelligence python -m intelligence.cli aggregate
+docker compose exec intelligence python -m intelligence.cli score
+```
+
+`--type=forum` is not in the schedule yet, deliberately: adding a nightly entry
+for a source whose terms are unresolved would be a scheduled licensing risk. Add
+it to `routes/console.php` when you enable the sources.
+
+### What it has NOT been verified against
+
+Live Reddit data. The entire test suite (43 tests) runs against fixture JSON,
+because a suite that only passes for whoever holds the API secret is not a suite.
+The OAuth flow, pagination cursor, rate-limit handling and §21 scrubbing are all
+exercised — against recorded shapes, not a live response. Expect the first real
+run to surface something the fixtures did not, most likely in whichever fields
+r/malaysia populates differently from the documented schema.
 
 ---
 
