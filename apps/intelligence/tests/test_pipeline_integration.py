@@ -24,7 +24,21 @@ from intelligence.repositories.sources import get_enabled_source_by_slug
 
 FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "multilingual_documents.json").read_text())
 TEST_SOURCE_SLUG = "test_source_pipeline"
-TEST_TOPIC_SLUGS = ["accounting_sync", "invoice_delivery", "reconciliation", "stock_accuracy"]
+TEST_TOPIC_SLUGS = [
+    "accounting_sync",
+    "invoice_delivery",
+    "reconciliation",
+    "stock_accuracy",
+    "workflow_manual_process",
+]
+
+# topic_daily_metrics is grouped by (signal_date, topic_id, region) and carries
+# no source column, so metrics produced by this test cannot be told apart from
+# anyone else's by source. A region nothing else uses is the only way to assert
+# an exact row count: with a real region name, demo data or a second real source
+# classifying the same topic silently changes the answer, and the test starts
+# reporting on data it did not create.
+TEST_REGION = "PipelineTestRegion"
 
 
 class FixtureCollector(Collector):
@@ -35,7 +49,7 @@ class FixtureCollector(Collector):
                 payload={"title": fixture["title"], "body": fixture["body"]},
                 title=fixture["title"],
                 body=fixture["body"],
-                region_raw="Selangor",
+                region_raw=TEST_REGION,
             )
 
 
@@ -112,6 +126,15 @@ def _cleanup(engine):
             conn.execute(delete(raw_documents_table).where(raw_documents_table.c.source_id == source.id))
             conn.execute(delete(sources_table).where(sources_table.c.id == source.id))
 
+        # Metrics are keyed by date, so yesterday's run leaves a row this test
+        # would otherwise count today. Safe to delete unconditionally: nothing
+        # but this test ever writes TEST_REGION.
+        conn.execute(
+            delete(topic_daily_metrics_table).where(
+                topic_daily_metrics_table.c.region == TEST_REGION
+            )
+        )
+
         # Deliberately do not delete TEST_TOPIC_SLUGS here — see the comment
         # in the `engine` fixture above. They are real taxonomy entries; at
         # most this leaves a CI-only DB with a few topics pre-created.
@@ -145,14 +168,15 @@ def test_full_pipeline_ingests_normalizes_classifies_and_aggregates(engine):
 
     with engine.begin() as conn:
         metrics = conn.execute(
-            select(topic_daily_metrics_table).join(
-                topics_table, topics_table.c.id == topic_daily_metrics_table.c.topic_id
-            ).where(topics_table.c.slug == "reconciliation")
+            select(topic_daily_metrics_table)
+            .join(topics_table, topics_table.c.id == topic_daily_metrics_table.c.topic_id)
+            .where(topics_table.c.slug == "reconciliation")
+            .where(topic_daily_metrics_table.c.region == TEST_REGION)
         ).all()
 
     assert len(metrics) == 1
     assert metrics[0].mention_count == 2  # zh + mixed fixtures both hit reconciliation
-    assert metrics[0].region == "Selangor"
+    assert metrics[0].region == TEST_REGION
 
 
 def test_pipeline_is_idempotent_on_rerun(engine):

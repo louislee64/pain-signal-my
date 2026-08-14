@@ -1,8 +1,10 @@
 from intelligence.collectors.base import Collector
 from intelligence.collectors.data_gov_my import DataGovMyDatasetCollector
+from intelligence.collectors.rss import RssFeedCollector
 
 COLLECTOR_REGISTRY: dict[str, type[Collector]] = {
     "data_gov_my_dataset": DataGovMyDatasetCollector,
+    "rss_feed": RssFeedCollector,
 }
 
 

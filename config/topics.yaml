@@ -95,34 +95,173 @@ topics:
         name: Status Updates
         keywords: [order status, status pesanan, status update, 订单状态]
 
+  # ---------------------------------------------------------------------------
+  # The eight topics below carried NO keywords until a text source existed to
+  # test them against, which meant the rule-based classifier (§23) could never
+  # match them no matter what was ingested. The phrases here were chosen by
+  # running candidates over a live 191-article Malaysian news corpus and reading
+  # what each one actually matched — see docs/text-sources.md.
+  #
+  # Every phrase is multi-word on purpose. Single common words were tried and
+  # rejected because of what they matched in real text:
+  #
+  #   "cukai" (tax)          -> "keuntungan sebelum cukai" (profit BEFORE tax),
+  #                             i.e. every bank earnings report.
+  #   "kos sara hidup"       -> "Kementerian Perdagangan Dalam Negeri dan Kos
+  #                             Sara Hidup" — the ministry's own name, so every
+  #                             article quoting KPDN became a cost-pressure
+  #                             signal. "tekanan kos" is used instead.
+  #   "system integration"   -> an ECRL railway commissioning story.
+  #   "profit margin"        -> listed-company earnings downgrades (Gamuda,
+  #                             Toyota), not SME margin pain.
+  #   "cash flow"            -> "negative free cash flow" in analyst notes.
+  #   "automation"           -> semiconductor fab capacity announcements.
+  #
+  # A keyword that fires on the wrong thing is worse than a missing one: §41
+  # forbids letting weak evidence look strong, and a false signal is counted by
+  # mention_frequency exactly like a real one.
+  #
+  # Several phrases below match nothing in the current corpus. That is fine and
+  # deliberate — they are correct descriptions of the topic that will fire when
+  # such an article appears. Absence today is a fact about the news cycle, not
+  # evidence the keyword is wrong.
+
   - slug: payment_refund
     name: Payment & Refund
     description: Problems collecting payment or processing refunds.
+    keywords:
+      - late payment
+      - delayed payment
+      - payment delay
+      - overdue invoice
+      - bad debt
+      - chasing payment
+      - bayaran lewat
+      - lewat bayaran
+      - tunggakan bayaran
+      - 延迟付款
+      - 拖欠付款
 
   - slug: compliance_reporting
     name: Compliance & Reporting
     description: Problems meeting regulatory/compliance reporting obligations.
+    keywords:
+      - compliance burden
+      - compliance cost
+      - cost of compliance
+      - regulatory deadline
+      - filing deadline
+      - sst registration
+      - sst compliance
+      - tax filing
+      - reporting requirement
+      - pematuhan peraturan
+      - pematuhan cukai
+      - beban pematuhan
+      - 合规成本
+      - 报税期限
 
   - slug: workflow_manual_process
     name: Manual Workflow / Process
     description: Recurring manual work that should be automated.
+    keywords:
+      - manual process
+      - manual data entry
+      - manual entry
+      - paper-based process
+      - still using spreadsheet
+      - done by hand
+      - proses manual
+      - kerja manual
+      - secara manual
+      - 手动流程
+      - 人工操作
 
   - slug: staff_operations
     name: Staff Operations
     description: Problems scheduling, training, or managing staff.
+    keywords:
+      - labour shortage
+      - labor shortage
+      - manpower shortage
+      - staff shortage
+      - worker shortage
+      - staff turnover
+      - staff scheduling
+      - kekurangan pekerja
+      - kekurangan tenaga kerja
+      - masalah pekerja
+      - jadual pekerja
+      - 人手不足
+      - 缺工
+      - 员工流失
 
   - slug: price_cost_pressure
     name: Price / Cost Pressure
     description: Problems caused by rising supplier or input costs.
+    # §14 explicitly endorses deriving SME cost pressure from macro price data
+    # ("Chicken price increased" -> "Restaurants may be experiencing ingredient
+    # cost pressure"), which is what these phrases actually find: central-bank
+    # and producer-cost commentary rather than an owner complaining. That is
+    # legitimate weak evidence, and it stays weak by construction —
+    # config/scoring.yaml gives this topic implementation_fit 30 under §28
+    # precisely because software does not fix input costs.
+    keywords:
+      - cost pressure
+      - cost pressures
+      - rising operating cost
+      - operating cost pressure
+      - input cost pressure
+      - margin squeeze
+      - squeeze on margin
+      - tekanan kos
+      - kos operasi meningkat
+      - kenaikan kos operasi
+      - 成本压力
+      - 经营成本上涨
 
   - slug: software_integration
     name: Software Integration
     description: Problems connecting one system/tool to another (POS, ERP, accounting).
+    keywords:
+      - does not integrate
+      - doesn't integrate
+      - no integration with
+      - legacy system
+      - pos integration
+      - system integration problem
+      - manual workaround
+      - sistem tidak serasi
+      - tiada integrasi
+      - 系统不兼容
+      - 系统整合问题
 
   - slug: data_reporting
     name: Data & Reporting
     description: Problems producing business reports or dashboards from raw data.
+    keywords:
+      - manual report
+      - manual reporting
+      - no visibility into
+      - lack of visibility
+      - data silo
+      - consolidate data
+      - laporan manual
+      - tiada laporan
+      - 数据孤岛
+      - 手工报表
 
   - slug: customer_retention
     name: Customer Retention
     description: Problems keeping customers coming back.
+    keywords:
+      - customer retention
+      - repeat customer
+      - customer churn
+      - losing customers
+      - customer loyalty
+      - pelanggan berulang
+      - kesetiaan pelanggan
+      - kehilangan pelanggan
+      - 客户流失
+      - 回头客

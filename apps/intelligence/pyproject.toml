@@ -12,6 +12,15 @@ dependencies = [
     "python-dotenv>=1.0,<2",
     "python-ulid>=2.2,<3",
     "pyyaml>=6.0,<7",
+    # RSS/Atom parsing (§13's "official RSS/feed" tier). feedparser handles the
+    # malformed-but-real feeds publishers actually serve — mismatched encodings,
+    # RSS 2.0 vs Atom, missing dates — which is exactly the work not worth
+    # hand-rolling with regex.
+    "feedparser>=6.0,<7",
+    # Article-body extraction for feeds that carry only a headline (§17). The
+    # boring choice: this is trafilatura's single purpose, and the alternative is
+    # per-publisher CSS selectors that break on every redesign.
+    "trafilatura>=1.12,<3",
 ]
 
 [project.optional-dependencies]

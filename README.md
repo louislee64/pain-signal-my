@@ -2,7 +2,7 @@
 
 Problem intelligence, opportunity discovery, and commercial-validation platform for Malaysian SME operational friction.
 
-See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API, [`docs/commercial-validation.md`](./docs/commercial-validation.md) for the funnel, the gates and the personal-data posture, [`docs/reporting.md`](./docs/reporting.md) for the weekly report, alerting and the schedule, and [`docs/outcomes-and-calibration.md`](./docs/outcomes-and-calibration.md) for the feedback loop.
+See [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the full product specification, [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) for coding-agent rules, [`docs/architecture.md`](./docs/architecture.md) for system architecture, [`docs/data-model.md`](./docs/data-model.md) for the database schema, [`docs/scoring-model.md`](./docs/scoring-model.md) for how opportunities are scored, [`docs/llm-providers.md`](./docs/llm-providers.md) for LLM extraction, cost and evaluation, [`docs/dashboard.md`](./docs/dashboard.md) for the dashboard and its API, [`docs/commercial-validation.md`](./docs/commercial-validation.md) for the funnel, the gates and the personal-data posture, [`docs/reporting.md`](./docs/reporting.md) for the weekly report, alerting and the schedule, [`docs/text-sources.md`](./docs/text-sources.md) for the news-feed collector, its robots/terms posture and its measured yield, and [`docs/outcomes-and-calibration.md`](./docs/outcomes-and-calibration.md) for the feedback loop.
 
 **Current status:** Milestone 8 — Real Market Validation. The loop closes: §58's outcome dataset records what happened when an opportunity met a real business, §56's `opportunity_revenue` answers *"did this system actually help create revenue?"*, and §57's calibration report says where the scoring model was wrong — while refusing to conclude from too little data and never editing the weights itself. All eight milestones in `PROJECT_SPEC.md` §55 are implemented.
 
@@ -77,13 +77,25 @@ Sync the source registry (`config/sources.yaml`) into the database, then run a c
 
 ```bash
 docker compose exec api php artisan sources:sync
+
+# One source by slug…
 docker compose exec intelligence python -m intelligence.cli ingest data_gov_my_fuelprice
+
+# …or everything in the registry, which is what the schedule runs.
+docker compose exec api php artisan sources:ingest
+docker compose exec api php artisan sources:ingest --type=news_feed
 ```
+
+Two source types are wired: the data.gov.my fuel-price dataset, and eight Malaysian
+news/business RSS feeds (English and Bahasa Malaysia). Article pages are fetched only for
+feeds that publish headlines alone, and only within robots.txt and rate limits —
+see [`docs/text-sources.md`](./docs/text-sources.md), which also reports the measured
+signal yield honestly.
 
 Re-running `ingest` is safe — unchanged rows are skipped, changed rows are updated in place,
 nothing is duplicated. See [`docs/data-model.md`](./docs/data-model.md) and
 [`docs/adding-a-data-source.md`](./docs/adding-a-data-source.md) for the schema and how to
-configure another dataset.
+configure another dataset or feed.
 
 ## Analytics pipeline
 

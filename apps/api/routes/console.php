@@ -46,13 +46,30 @@ $intelligence = fn (string $subcommand): string => trim(
 
 // OFFICIAL DATA — "check according to dataset publication frequency".
 // Fuel prices publish weekly (Wednesdays). Checked daily anyway because the
-// publication day is theirs to change, and the conditional-fetch support added
-// in this milestone makes an unchanged check nearly free (§38: "Do not download
-// unchanged official datasets unnecessarily").
-Schedule::exec($intelligence('ingest data_gov_my_fuelprice'))
+// publication day is theirs to change, and conditional-fetch support makes an
+// unchanged check nearly free (§38: "Do not download unchanged official datasets
+// unnecessarily").
+//
+// Both entries below go through `sources:ingest`, which reads the registry, so
+// neither names a source. §13/§67 require adding a data source to be a
+// config-only change, and a slug hardcoded here would break that in the most
+// annoying way possible: the source works when run by hand and never runs again.
+Schedule::command('sources:ingest --type=official_dataset')
     ->dailyAt('01:00')
     ->withoutOverlapping()
-    ->description('§38 official data: fuel prices');
+    ->description('§38 official data');
+
+// TEXT SOURCES — "daily or source-appropriate frequency".
+//
+// Separate from official data so the two cadences can diverge without touching
+// each other; news publishes continuously while a government dataset publishes
+// weekly. Runs after official data rather than alongside it because article
+// fetching is rate-limited and can take minutes, and a slow feed must not delay
+// the dataset check.
+Schedule::command('sources:ingest --type=news_feed')
+    ->dailyAt('01:15')
+    ->withoutOverlapping()
+    ->description('§38 text sources');
 
 // NORMALIZATION after ingestion; CLASSIFICATION after normalization.
 Schedule::exec($intelligence('normalize'))

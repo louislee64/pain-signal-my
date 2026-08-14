@@ -170,7 +170,8 @@ docker compose exec api php artisan schedule:list
 ```
 
 ```
-0  1 * * *   intelligence ingest data_gov_my_fuelprice   official data
+0  1 * * *   sources:ingest --type=official_dataset      official data
+15 1 * * *   sources:ingest --type=news_feed             text sources (§38)
 30 1 * * *   intelligence normalize                      after ingestion
 0  2 * * *   intelligence classify                       after normalization
 30 2 * * *   intelligence trends compute                 daily
@@ -179,6 +180,14 @@ docker compose exec api php artisan schedule:list
 0  4 * * *   alerts:check --notify                       after scoring
 0  6 * * 1   reports:generate --notify --verify          weekly
 ```
+
+The two ingestion entries name a `source_type`, never a slug. §13/§67 require that
+adding a data source be a config-only change, and a hardcoded slug here would
+break that in the most annoying way available: the source registers, syncs,
+ingests by hand, and then never runs again because nobody edited this file.
+`sources:ingest` reads the registry instead. Text sources run 15 minutes later
+because article fetching is rate-limited and can take minutes — a slow publisher
+must not delay the dataset check.
 
 Every entry is `withoutOverlapping()`. A large ingestion can outlast its own
 interval, and two concurrent runs of one collector would both insert, both hit

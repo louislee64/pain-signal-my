@@ -1,11 +1,33 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.engine import Connection
 
 from intelligence.db import sources_table
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    """Label a timestamp read from Postgres as UTC.
+
+    The schema is owned by Laravel migrations, which create `timestamp(0)`
+    columns — `timestamp WITHOUT time zone`. SQLAlchemy declares them
+    `DateTime(timezone=True)` but cannot invent an offset the database does not
+    store, so every timestamp arrives naive while everything this codebase writes
+    is `datetime.now(timezone.utc)`. The values are UTC; only the label is
+    missing.
+
+    Restoring it here rather than at each call site is the difference between one
+    correct conversion and a trap. `since` is handed straight to collectors, and
+    a collector that compares it against a parsed feed date raised
+    "can't compare offset-naive and offset-aware datetimes" — but only on the
+    SECOND run, because the first has no last_successful_sync to compare with.
+    A first run that always works is the worst possible place to hide this.
+    """
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -49,11 +71,11 @@ def get_enabled_source_by_slug(conn: Connection, slug: str) -> SourceRecord | No
         collector=row.collector,
         config=row.config or {},
         enabled=row.enabled,
-        last_synced_at=row.last_synced_at,
+        last_synced_at=_as_utc(row.last_synced_at),
         etag=row.etag,
         last_modified=row.last_modified,
         dataset_version=row.dataset_version,
-        last_successful_sync=row.last_successful_sync,
+        last_successful_sync=_as_utc(row.last_successful_sync),
     )
 
 

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Test Atom Feed</title>
+  <link href="https://atom.test/"/>
+  <updated>2026-08-14T07:00:00Z</updated>
+  <id>urn:uuid:atom-test-feed</id>
+  <entry>
+    <title>Manual reporting still common among smaller firms</title>
+    <link href="https://atom.test/posts/manual-reporting"/>
+    <id>urn:uuid:atom-entry-0001</id>
+    <updated>2026-08-14T07:00:00Z</updated>
+    <published>2026-08-14T07:00:00Z</published>
+    <author><name>Atom Byline</name></author>
+    <content type="html"><![CDATA[<p>Finance teams at smaller Malaysian firms continue to rely on manual reporting, according to a survey published this week. Respondents described consolidating figures from several systems by hand each month because the tools they use do not integrate with one another.</p>
+    <p>Roughly half said they have no visibility into monthly margins until the accounts close, a delay that leaves pricing decisions running on stale numbers. Others pointed to a data silo between point-of-sale and accounting as the root cause, and said the manual workaround has become permanent.</p>
+    <p>The survey covered 400 firms across the Klang Valley, Penang and Johor over a six-week window earlier this year.</p>]]></content>
+  </entry>
+</feed>

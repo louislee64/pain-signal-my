@@ -11,7 +11,8 @@
     "expected_language": "ms",
     "title": "Invois perlu hantar manual",
     "body": "Kami hantar invois setiap hari secara manual dan sangat kecewa sebab kos tinggi.",
-    "expected_topics": ["invoice_delivery"]
+    "_note": "workflow_manual_process was added when the eight keywordless topics were filled in. 'secara manual' ('manually') is a true positive, not over-matching: sending invoices by hand every day is both an invoice-delivery problem and a manual-workflow one, and config/topics.yaml states that a document may match more than one topic.",
+    "expected_topics": ["invoice_delivery", "workflow_manual_process"]
   },
   {
     "id": "zh_reconciliation_stock",
@@ -25,6 +26,7 @@
     "expected_language": "mixed",
     "title": "Inventory reconciliation trouble",
     "body": "Boss cakap stock wrong lagi, kena reconcile manual entry setiap hari, memang problem besar.",
-    "expected_topics": ["stock_accuracy", "reconciliation"]
+    "_note": "Same reason as ms_invoice_delivery: 'manual entry' is exactly what workflow_manual_process describes.",
+    "expected_topics": ["stock_accuracy", "reconciliation", "workflow_manual_process"]
   }
 ]

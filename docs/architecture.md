@@ -258,10 +258,65 @@ business panel: everything runs and nothing has been sold.
 "Do NOT start here", and `opportunity_outcomes` is shaped as its eventual training
 set.
 
+## Public text sources
+
+The first text source: eight Malaysian news/business RSS feeds via a
+config-driven `rss_feed` collector. Full detail and measurements in
+[text-sources.md](text-sources.md); the decisions worth recording here are the
+architectural ones.
+
+**Two new dependencies, both narrow.** `feedparser` handles the malformed-but-real
+feeds publishers actually serve (mismatched encodings, RSS 2.0 vs Atom, missing
+dates) and `trafilatura` extracts article bodies. Both replace work that is
+classically a mistake to hand-roll: a regex feed parser and per-publisher CSS
+selectors that break on every redesign. `trafilatura` is imported lazily so
+nothing in the scoring, reporting or API paths pays its `lxml` import cost.
+
+**§17's obligations live in one module, not in each collector.**
+`collectors/fetching.py` holds the robots.txt cache, the per-host rate limiter
+that honours `Crawl-delay`, and §21's contact scrubber. Putting them behind the
+collector interface would make them optional; putting them in a shared module
+that `ArticleFetcher` always applies makes skipping them require deliberate
+effort.
+
+**§21 is enforced at collection, which contradicts §18, on purpose.** §18 wants an
+immutable raw layer; §21 says do not collect unnecessary personal information. For
+free-form human text these conflict: once a phone number reaches
+`raw_documents`, immutability preserves it forever. The scrub therefore runs
+before storage, and provenance is redefined as source + URL + feed entry + fetch
+timestamp + `body_source`/`body_fetch_note` — a faithful record of what arrived
+and how, rather than a byte-identical copy of the publisher's HTML. This is the
+one place in the project where "raw" is not literally raw, and it is the reason
+`body_source` exists.
+
+**The schedule stopped naming sources.** `sources:ingest` reads the registry, so
+§13/§67's config-only promise now extends to the scheduler. A hardcoded slug in
+`routes/console.php` broke it invisibly: a new source worked by hand and never ran
+again.
+
+**Two latent defects surfaced, both invisible until a second source existed:**
+
+- `get_unclassified_documents` had `LIMIT` with no `ORDER BY`, and documents that
+  match nothing are re-scanned forever by design. Postgres could return the same
+  arbitrary 500 never-matching rows indefinitely, so once the unmatched backlog
+  passed the batch size, newly ingested documents were never classified at all.
+  With 945 fuel-price documents ahead of them, the news articles were
+  unreachable. Now newest-first with an id tiebreak
+  (`tests/test_classification_order.py`).
+- Laravel migrations create `timestamp(0)` columns — WITHOUT time zone — so
+  Postgres returns naive datetimes despite `db.py` declaring
+  `DateTime(timezone=True)`. Any collector comparing `since` against a parsed date
+  raised, but only on the **second** run, because the first has no
+  `last_successful_sync`. Fixed once at the read boundary in
+  `repositories/sources.py`.
+
+§38's conditional-fetch path, written for data.gov.my and never exercised because
+that API sends no validators, now returns real 304s from live feeds.
+
 ## Why this shape
 
 - Three independently deployable apps sharing two datastores, per `PROJECT_SPEC.md` §8/§9 — no message broker or orchestrator introduced yet (`PROJECT_SPEC.md` §54 explicitly excludes Kafka/Kubernetes for V1).
-- `intelligence`'s dependencies are still just `pydantic`, `sqlalchemy`, `psycopg`, `httpx`, `redis`, `python-dotenv`, `python-ulid`, `pyyaml` — the heavier analytics libraries named in `PROJECT_SPEC.md` §9 (`pandas`, `polars`, `pyarrow`, `scikit-learn`, `numpy`) still haven't been needed even through normalization/classification/aggregation (plain regex, dict-based rules, and SQL `GROUP BY` cover it); add them when a milestone's workload actually calls for a dataframe or a model, not preemptively.
+- `intelligence`'s dependencies are `pydantic`, `sqlalchemy`, `psycopg`, `httpx`, `redis`, `python-dotenv`, `python-ulid`, `pyyaml`, plus `feedparser` and `trafilatura` for feed parsing and article extraction — the heavier analytics libraries named in `PROJECT_SPEC.md` §9 (`pandas`, `polars`, `pyarrow`, `scikit-learn`, `numpy`) still haven't been needed even through normalization/classification/aggregation (plain regex, dict-based rules, and SQL `GROUP BY` cover it); add them when a milestone's workload actually calls for a dataframe or a model, not preemptively.
 - `docker-compose.yml` bind-mounts each app's source for hot-reload, but keeps `vendor/` (Laravel) and `node_modules/` (Nuxt) in named volumes — Docker seeds each named volume from the image's own build the first time it's created, so the container always runs the dependency tree it was built with (PHP 8.4 Alpine, `node:20-slim`) regardless of what a host-side install produced.
 - `depends_on` uses `condition: service_healthy` so `api` and `intelligence` don't start against a Postgres/Redis that isn't accepting connections yet.
 
@@ -282,10 +337,16 @@ one key (as done for `SOURCES_REGISTRY_PATH`), not via `env_file:`.
 ## Not yet implemented
 
 `official_metrics` (§20), and §59's machine learning, which the spec explicitly
-defers until enough outcome data exists. The practical gap is data rather than
-code: the only wired source is fuel prices, which matches no topic keywords by
-design, so real validation needs a text source (a forum or review collector) via
-`docs/adding-a-data-source.md`. `LLMProvider.classify_problem()` and `generate_summary()` are
+defers until enough outcome data exists. The practical gap remains data rather
+than code, though it has narrowed: eight news feeds now supply real Malaysian
+text, but news carries macroeconomic commentary rather than SME operational
+complaints (measured yield: 9 keyword matches in 191 articles — see
+[text-sources.md](text-sources.md)). What would move the needle is a source where
+owners describe their own problems — a forum, app-store reviews, an
+industry-association list — each of which carries a terms question the news feeds
+do not. `vulcanpost_my` is registered but disabled because 9 of 10 entries were
+Singaporean; enabling it needs per-entry country detection rather than a
+per-source region constant. `LLMProvider.classify_problem()` and `generate_summary()` are
 declared but raise: the rule-based classifier already assigns topics deterministically and for
 free, and no milestone needs summaries yet — better an unimplemented method than a plausible
 stub. See `PROJECT_SPEC.md` §55 for the milestone sequence.

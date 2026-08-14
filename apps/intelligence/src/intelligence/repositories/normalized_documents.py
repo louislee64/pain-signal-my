@@ -109,6 +109,24 @@ def get_unclassified_documents(
     limit: int = 500,
     source_id: int | None = None,
 ) -> list[ClassifiableDocument]:
+    """Documents with no document_topics row yet under `classification_method`,
+    newest first.
+
+    The ordering is load-bearing, not cosmetic. A document that matches no
+    keyword produces no row, so it stays in this result set permanently and is
+    re-scanned on every run (see classify_and_extract_signals). With `LIMIT` and
+    no `ORDER BY`, Postgres was free to return the same arbitrary 500
+    never-matching rows forever — so once the unmatched backlog grew past the
+    batch size, newly ingested documents could starve and never be classified at
+    all. That went unnoticed while the only source was fuel prices, which match
+    nothing by design; adding a text source made it reachable.
+
+    Newest-first bounds the damage in the direction the product cares about:
+    §26's scoring window is 30 days, so the recent end is the end that matters.
+    The residual limitation is the honest one — an unmatched backlog deeper than
+    `limit` never gets revisited — and it costs nothing, because those documents
+    produce no signals by definition.
+    """
     already_classified = select(document_topics_table.c.document_id).where(
         document_topics_table.c.classification_method == classification_method
     )
@@ -131,7 +149,12 @@ def get_unclassified_documents(
     if source_id is not None:
         query = query.where(raw_documents_table.c.source_id == source_id)
 
-    rows = conn.execute(query.limit(limit)).all()
+    # `id` breaks ties so the order is total, not merely mostly-determined:
+    # a whole feed can share one signal_date, and an unstable tail would
+    # reintroduce the starvation this ordering exists to prevent.
+    rows = conn.execute(
+        query.order_by(signal_date.desc(), normalized_documents_table.c.id.desc()).limit(limit)
+    ).all()
 
     return [
         ClassifiableDocument(

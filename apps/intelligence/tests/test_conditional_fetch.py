@@ -247,6 +247,39 @@ def test_since_uses_last_successful_sync_not_last_attempt(engine):
     assert third.received_since == successful
 
 
+def test_since_is_timezone_aware_so_collectors_can_compare_it(engine):
+    """`since` must be usable in a datetime comparison, not just printable.
+
+    The schema is owned by Laravel migrations, which create `timestamp(0)`
+    columns — WITHOUT time zone — so Postgres hands back naive datetimes even
+    though db.py declares `DateTime(timezone=True)`. A collector that filters
+    entries by publication date compares `since` against a parsed, UTC-aware
+    timestamp, and a naive `since` raises "can't compare offset-naive and
+    offset-aware datetimes".
+
+    The reason this needs pinning: the first run has no last_successful_sync, so
+    `since` is None and everything works. The failure appears only on the second
+    run, which is the hardest kind of bug to notice and the easiest to
+    reintroduce.
+    """
+    first = RecordingCollector({}, documents=[_document()])
+    run_ingestion(SOURCE_SLUG, engine=engine, collector_factory=_factory(first))
+    assert first.received_since is None, "a first run has nothing to resume from"
+
+    second = RecordingCollector({}, documents=[_document(1)])
+    run_ingestion(SOURCE_SLUG, engine=engine, collector_factory=_factory(second))
+
+    assert second.received_since is not None
+    assert second.received_since.tzinfo is not None
+
+    # The comparison a feed collector actually performs. Asserted against a fixed
+    # past instant rather than `now()`: the column is `timestamp(0)`, which
+    # *rounds* to the nearest second, so last_successful_sync can sit a fraction
+    # of a second in the future and a `<= now()` assertion would fail roughly
+    # half the time. What matters here is that comparing does not raise.
+    assert second.received_since > datetime(2000, 1, 1, tzinfo=timezone.utc)
+
+
 def test_a_collector_that_reports_no_validators_does_not_erase_stored_ones(engine):
     # A server that stops sending ETags must not cause us to forget the last good
     # validator and silently drop back to unconditional requests.

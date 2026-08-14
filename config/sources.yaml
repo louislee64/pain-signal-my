@@ -25,3 +25,263 @@ sources:
     terms_status: reviewed
     personal_data_risk: none
     enabled: true
+
+  # ---------------------------------------------------------------------------
+  # Public text sources (§17), via the `rss_feed` collector — §13's tier 3,
+  # "official RSS/feed". Adding another feed is a config-only change.
+  #
+  # TERMS STATUS — READ THIS BEFORE ADDING MORE.
+  #
+  # Every feed below is marked `unreviewed`, and that is accurate rather than
+  # lazy. What was actually verified, per host, is narrow:
+  #
+  #   * robots.txt permits the article paths for our User-Agent (checked
+  #     programmatically; businesstoday.com.my declares Crawl-delay: 10, which
+  #     the collector honours).
+  #   * The feed is published openly, with no credential or paywall.
+  #
+  # What was NOT verified is each publisher's Terms of Use, and specifically
+  # whether storing extracted full-article text is permitted. That is a
+  # copyright judgement about someone else's content, not a technical check, so
+  # it stays `unreviewed` until a human decides. §17 asks for exactly this
+  # ("review terms") and it is deliberately not being claimed here.
+  #
+  # `fetch_articles` is therefore set to `false` wherever measurement showed the
+  # feed already carries the full body — which is most of them. Only two feeds
+  # publish headlines alone, so full-text extraction touches two publishers
+  # rather than nine. See docs/text-sources.md for the measurements.
+  #
+  # personal_data_risk is `low`, not `none`: news prose is human-written and can
+  # name people. The collector drops bylines and redacts emails/phone numbers
+  # before storage (§21), so no identifier is stored deliberately, but the text
+  # is not machine-generated the way fuel prices are.
+
+  - slug: fmt_business
+    name: "Free Malaysia Today — Business"
+    source_type: news_feed
+    base_url: "https://www.freemalaysiatoday.com"
+    collector: rss_feed
+    config:
+      feed_url: "https://www.freemalaysiatoday.com/category/business/feed/"
+      # Measured: 50 entries, ~2,370 characters of content:encoded each.
+      fetch_articles: false
+      requests_per_minute: 20
+      language: en
+      region: MY
+    collection_method: rss
+    rate_limit: "20/minute"
+    reliability_score: 65
+    license: "All rights reserved by publisher; headline/summary use only"
+    terms_url: "https://www.freemalaysiatoday.com/terms-of-use/"
+    terms_status: unreviewed
+    personal_data_risk: low
+    enabled: true
+
+  - slug: malaymail_money
+    name: "Malay Mail — Money"
+    source_type: news_feed
+    base_url: "https://www.malaymail.com"
+    collector: rss_feed
+    config:
+      feed_url: "https://www.malaymail.com/feed/rss/money"
+      # Measured: 50 entries, ~2,595 characters each.
+      fetch_articles: false
+      requests_per_minute: 20
+      language: en
+      region: MY
+    collection_method: rss
+    rate_limit: "20/minute"
+    reliability_score: 65
+    license: "All rights reserved by publisher; headline/summary use only"
+    terms_url: "https://www.malaymail.com/terms-of-use"
+    terms_status: unreviewed
+    personal_data_risk: low
+    enabled: true
+
+  - slug: malaysian_reserve
+    name: "The Malaysian Reserve"
+    source_type: news_feed
+    base_url: "https://themalaysianreserve.com"
+    collector: rss_feed
+    config:
+      feed_url: "https://themalaysianreserve.com/feed/"
+      # Measured: 10 entries, ~2,900 characters each.
+      fetch_articles: false
+      requests_per_minute: 20
+      language: en
+      region: MY
+    collection_method: rss
+    rate_limit: "20/minute"
+    reliability_score: 70
+    license: "All rights reserved by publisher; headline/summary use only"
+    terms_url: "https://themalaysianreserve.com/"
+    terms_status: unreviewed
+    personal_data_risk: low
+    enabled: true
+
+  - slug: vulcanpost_my
+    name: "Vulcan Post Malaysia"
+    source_type: news_feed
+    base_url: "https://vulcanpost.com"
+    collector: rss_feed
+    config:
+      feed_url: "https://vulcanpost.com/feed/"
+      fetch_articles: false
+      requests_per_minute: 20
+      language: en
+      # No region claim. See the note below — this feed is mostly not Malaysian,
+      # and `region: MY` would be an assertion the content does not support.
+      region: null
+    collection_method: rss
+    rate_limit: "20/minute"
+    reliability_score: 70
+    license: "All rights reserved by publisher; headline/summary use only"
+    terms_url: "https://vulcanpost.com/terms-of-service/"
+    terms_status: unreviewed
+    personal_data_risk: low
+    # DISABLED on measured evidence, not on principle. This feed has by far the
+    # richest SME-operational content of everything tested — a merchant whose
+    # margins fell from 28% to 6%, SME owners explaining why they borrow — which
+    # is exactly what this project wants and no Malaysian feed provided.
+    #
+    # But 9 of its 10 entries were about SINGAPORE (S$, "S'pore", Singaporean
+    # companies) and only 3 mentioned Malaysia at all. Ingesting it as MY
+    # evidence would put Singaporean businesses behind Malaysian opportunity
+    # scores, and §41 forbids exactly this: weak or mislabelled evidence
+    # presented as strong. Geographic spread (§26, weight 0.15) would be
+    # measuring the wrong country.
+    #
+    # To use it properly the collector would need per-entry country detection
+    # rather than a per-source region constant. That is a real feature, not a
+    # config tweak, so the feed stays off until someone builds it.
+    enabled: false
+
+  - slug: digital_news_asia
+    name: "Digital News Asia"
+    source_type: news_feed
+    base_url: "https://www.digitalnewsasia.com"
+    collector: rss_feed
+    config:
+      feed_url: "https://www.digitalnewsasia.com/rss.xml"
+      # Measured: ~8,800 characters each. Enterprise/SME digitalisation, which
+      # is the closest any tested feed gets to §4's software-adoption topics.
+      fetch_articles: false
+      requests_per_minute: 20
+      language: en
+      region: MY
+    collection_method: rss
+    rate_limit: "20/minute"
+    reliability_score: 70
+    license: "All rights reserved by publisher; headline/summary use only"
+    terms_url: "https://www.digitalnewsasia.com/"
+    terms_status: unreviewed
+    personal_data_risk: low
+    enabled: true
+
+  - slug: hmetro_bm
+    name: "Harian Metro (Bahasa Malaysia)"
+    source_type: news_feed
+    base_url: "https://www.hmetro.com.my"
+    collector: rss_feed
+    config:
+      feed_url: "https://www.hmetro.com.my/feed"
+      # Measured: the HIGHEST SME-operational hit rate of every feed tested
+      # (7/51 entries), on terms no English feed produced at all — "kos operasi",
+      # "peniaga", "pekerja asing", "kos sara hidup". §43's insistence on
+      # multilingual processing earns its keep here rather than in theory.
+      fetch_articles: false
+      requests_per_minute: 20
+      language: ms
+      region: MY
+    collection_method: rss
+    rate_limit: "20/minute"
+    reliability_score: 55
+    license: "All rights reserved by publisher; headline/summary use only"
+    terms_url: "https://www.hmetro.com.my/"
+    terms_status: unreviewed
+    personal_data_risk: low
+    enabled: true
+
+  - slug: utusan_bm
+    name: "Utusan Malaysia (Bahasa Malaysia)"
+    source_type: news_feed
+    base_url: "https://www.utusan.com.my"
+    collector: rss_feed
+    config:
+      feed_url: "https://www.utusan.com.my/feed/"
+      # Measured: 10 entries, ~2,120 characters each.
+      fetch_articles: false
+      requests_per_minute: 20
+      language: ms
+      region: MY
+    collection_method: rss
+    rate_limit: "20/minute"
+    reliability_score: 60
+    license: "All rights reserved by publisher; headline/summary use only"
+    terms_url: "https://www.utusan.com.my/"
+    terms_status: unreviewed
+    personal_data_risk: low
+    enabled: true
+
+  # The two feeds below publish headlines only, so these are the only sources
+  # that fetch article pages at all.
+
+  - slug: businesstoday_my
+    name: "Business Today Malaysia"
+    source_type: news_feed
+    base_url: "https://www.businesstoday.com.my"
+    collector: rss_feed
+    config:
+      feed_url: "https://www.businesstoday.com.my/feed/"
+      # Measured: 20 entries truncated to ~370 characters — a teaser, not an
+      # article. So the page WAS worth fetching, and fetching was tried.
+      #
+      # It does not work, and the reason is the important part. robots.txt allows
+      # these paths and even declares Crawl-delay: 10, which the rate limiter
+      # honoured — and the site still returned 403 Forbidden to all ten requests
+      # from our declared User-Agent. robots.txt permission is not the same thing
+      # as access.
+      #
+      # A 403 to an honestly-identified client is the publisher declining. §17
+      # says "avoid bypassing technical controls", so the response is to stop
+      # asking, not to send a browser User-Agent instead. Retrying nightly would
+      # be ten pointless requests a night to a host that has already said no.
+      #
+      # The ~370-character teaser plus the headline is what this source
+      # contributes. That is thin but real, and thin is not nothing.
+      fetch_articles: false
+      requests_per_minute: 6
+      language: en
+      region: MY
+    collection_method: rss
+    rate_limit: "6/minute"
+    reliability_score: 65
+    license: "All rights reserved by publisher; summary use only (article pages return 403)"
+    terms_url: "https://www.businesstoday.com.my/"
+    terms_status: unreviewed
+    personal_data_risk: low
+    enabled: true
+
+  - slug: thevibes_business
+    name: "The Vibes — Business"
+    source_type: news_feed
+    base_url: "https://www.thevibes.com"
+    collector: rss_feed
+    config:
+      feed_url: "https://www.thevibes.com/rss/business"
+      # Measured: 100 entries with a title and NO body whatsoever. Without the
+      # article fetch this source would contribute headlines that cannot be
+      # classified.
+      fetch_articles: true
+      max_article_fetches: 25
+      requests_per_minute: 20
+      language: en
+      region: MY
+    collection_method: rss
+    rate_limit: "20/minute"
+    reliability_score: 60
+    license: "All rights reserved by publisher; full-text extraction pending terms review"
+    terms_url: "https://www.thevibes.com/"
+    terms_status: unreviewed
+    personal_data_risk: low
+    enabled: true

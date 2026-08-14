@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Test Business Feed</title>
+    <link>https://example.test/business</link>
+    <description>A feed that carries full article bodies, like most Malaysian publishers do.</description>
+    <item>
+      <title>SME owners report rising operating cost pressure</title>
+      <link>https://example.test/business/2026/08/14/sme-cost-pressure</link>
+      <guid isPermaLink="true">https://example.test/business/2026/08/14/sme-cost-pressure</guid>
+      <pubDate>Thu, 14 Aug 2026 04:30:00 +0000</pubDate>
+      <dc:creator><![CDATA[Jane Reporter]]></dc:creator>
+      <category><![CDATA[Business]]></category>
+      <category><![CDATA[SME]]></category>
+      <description><![CDATA[A short teaser that should lose to the longer content block.]]></description>
+      <content:encoded><![CDATA[<p>KUALA LUMPUR: Small business owners across the Klang Valley say operating cost pressure has intensified over the past quarter, with several reporting a margin squeeze severe enough to force menu and price revisions.</p>
+      <p>"Every month the supplier invoice goes up and we absorb it," said one operator, who runs three outlets. Owners described a manual process for tracking supplier prices, largely spreadsheet based, which several said makes it hard to see which items are eroding profit.</p>
+      <p>Industry groups have asked for clearer guidance on compliance cost, noting that the reporting requirement introduced last year added administrative work without additional headcount. Several members said late payment from corporate customers compounds the problem, leaving them chasing payment while their own bills fall due.</p>
+      <p>Readers with information may contact the newsroom at tips@example.test or call 012-345 6789 during office hours. Our switchboard is 03-1234 5678.</p>]]></content:encoded>
+    </item>
+    <item>
+      <title>Feed entry with an unusually long identifier</title>
+      <link>https://example.test/business/2026/08/13/very-long-identifier-story</link>
+      <guid isPermaLink="false">urn:example:very-long-identifier-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</guid>
+      <pubDate>Wed, 13 Aug 2026 02:00:00 +0000</pubDate>
+      <description><![CDATA[Short body, deliberately under the article threshold.]]></description>
+    </item>
+    <item>
+      <title>Entry with no guid at all</title>
+      <link>https://example.test/business/2026/08/12/no-guid-story</link>
+      <pubDate>Tue, 12 Aug 2026 01:00:00 +0000</pubDate>
+      <description><![CDATA[Also short.]]></description>
+    </item>
+  </channel>
+</rss>
